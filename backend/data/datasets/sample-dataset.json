@@ -1,0 +1,34 @@
+[
+  {
+    "record_id": "S001",
+    "animal_id": "A101",
+    "farm_id": "F200",
+    "species": "Goat",
+    "country": "Kenya",
+    "drug_name": "Enrofloxacin",
+    "dose": "8 mg/kg",
+    "duration": "3 days",
+    "administration_date": "2026-03-05",
+    "withdrawal_days": 14,
+    "withdrawal_end_date": "2026-03-19",
+    "MRL_limit": 80,
+    "residue_value": 84,
+    "compliance_status": "Violation"
+  },
+  {
+    "record_id": "S002",
+    "animal_id": "A102",
+    "farm_id": "F201",
+    "species": "Cattle",
+    "country": "USA",
+    "drug_name": "Tylosin",
+    "dose": "10 mg/kg",
+    "duration": "5 days",
+    "administration_date": "2026-03-01",
+    "withdrawal_days": 21,
+    "withdrawal_end_date": "2026-03-22",
+    "MRL_limit": 90,
+    "residue_value": 55,
+    "compliance_status": "Compliant"
+  }
+]
