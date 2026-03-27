@@ -121,22 +121,22 @@ function AdminDashboard({ isDark, onThemeToggle }) {
     return db - da
   })
 
-  const loadRecords = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch("http://localhost:5000/api/records")
-      const data = await res.json()
-      setRecords(sortByDateDesc(data))
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+const loadRecords = async () => {
+  setLoading(true)
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/records`)
+    const data = await res.json()
+    setRecords(sortByDateDesc(data))
+  } catch (err) {
+    console.error(err)
+  } finally {
+    setLoading(false)
   }
+}
 
   useEffect(() => {
     setLoading(true)
-    fetch("http://localhost:5000/api/records")
+    fetch(`${import.meta.env.VITE_API_URL}/api/records`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()

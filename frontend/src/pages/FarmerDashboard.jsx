@@ -127,12 +127,12 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
     })
   }
 
-  useEffect(() => {
-    fetch("http://localhost:5000/api/records")
-      .then(res => res.json())
-      .then(data => setRecords(data.slice().reverse()))
-      .catch(err => console.log(err));
-  }, []);
+ useEffect(() => {
+  fetch(`${import.meta.env.VITE_API_URL}/api/records`)
+    .then(res => res.json())
+    .then(data => setRecords(data.slice().reverse()))
+    .catch(err => console.log(err));
+}, []);
 
   // Fetch dosage recommendation when symptom/weight/age changes
   useEffect(() => {
@@ -145,7 +145,7 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
         age: model.age || "12"
       });
       
-      fetch(`http://localhost:5000/api/dosage-recommendation?${params}`)
+      fetch(`${import.meta.env.VITE_API_URL}/api/dosage-recommendation?${params}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -188,20 +188,24 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
       vet_status: "not reviewed"
     }
 
-    await fetch("http://localhost:5000/api/records", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    }).then(res => res.json())
-     .then(data => setRecords(data.slice().reverse()))
-     .catch(err => console.log(err));
+    await fetch(`${import.meta.env.VITE_API_URL}/api/records`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify(payload)
+})
+  .then(res => {
+    if (!res.ok) throw new Error("Request failed");
+    return res.json();
+  })
+  .then(data => setRecords(data.slice().reverse()))
+  .catch(err => console.log(err));
 
-    setModel(initialModel);
-    setStep(1);
-    setActive("My Records");
-    setMessage("✓ Treatment saved successfully!");
+setModel(initialModel);
+setStep(1);
+setActive("My Records");
+setMessage("✓ Treatment saved successfully!");
   };
 
   const guideCards = Object.entries(TREATMENT_GUIDE).map(([symptom, drugs]) => (

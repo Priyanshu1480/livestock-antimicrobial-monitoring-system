@@ -53,7 +53,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
   const loadRecords = async () => {
     setLoading(true)
     try {
-      const res = await fetch("http://localhost:5000/api/records")
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/records`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (Array.isArray(data)) {
@@ -80,7 +80,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
         vet_notes: suggestion || "",
         vet_remarks: remarks || ""
       }
-      const res = await fetch(`http://localhost:5000/api/records/${recordId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/records/${recordId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
