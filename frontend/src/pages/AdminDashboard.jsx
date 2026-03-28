@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, CartesianGrid, XAxis, YAxis, 
 import Navbar from "../components/Navbar"
 import Sidebar from "../components/Sidebar"
 import Loading from "../components/Loading"
+import Button from "../components/Button"
 import jsPDF from "jspdf"
 
 const sections = ["Overview", "Analytics", "Alerts", "Consumer Safety", "Reports"]
@@ -103,6 +104,18 @@ function getProductAvailability(record) {
   };
 }
 
+function normalizeStatus(record) {
+  const status = (record.status || record.compliance_status || record.mrl_status || "").toString().toLowerCase()
+  if (["safe", "completed", "compliant", "approved"].includes(status)) return "safe"
+  if (["not safe", "unsafe", "exceeds mrl", "violation", "rejected", "pending"].includes(status)) return "unsafe"
+  return "unknown"
+}
+
+function isPendingRecord(record) {
+  const status = (record.status || record.compliance_status || "").toString().toLowerCase()
+  return status === "pending"
+}
+
 function AdminDashboard({ isDark, onThemeToggle }) {
   const nav = useNavigate()
   const [active, setActive] = useState("Overview")
@@ -154,64 +167,130 @@ const loadRecords = async () => {
   }, [])
 
   const summary = useMemo(() => {
-    if (!records || !Array.isArray(records)) {
-      return { total: 0, violations: 0, safe: 0, pending: 0, byDrug: {}, byCountry: {}, byFarm: {}, weakDates: {}, byAnimal: {}, byProblem: {}, byCountryDetails: {}, byFarmDetails: {} }
+    try {
+      if (!records || !Array.isArray(records) || records.length === 0) {
+        return { total: 0, violations: 0, safe: 0, compliant: 0, nonCompliant: 0, pending: 0, byDrug: {}, byCountry: {}, byFarm: {}, byAnimalType: {}, byHealthStatus: {}, byRegion: {}, complianceByCountry: {}, byCountryDetails: {}, safetyByFarm: {}, complianceRate: 0, safetyRate: 0 }
+      }
+
+      const total = records.length
+      
+      const pending = records.filter(r => isPendingRecord(r)).length
+      
+      // Determine compliance and safety - handle missing fields gracefully
+      const compliant = records.filter(r => {
+        const status = (r.compliance_status || "").toLowerCase()
+        return status === "compliant"
+      }).length
+      
+      const nonCompliant = records.filter(r => {
+        const status = (r.compliance_status || "").toLowerCase()
+        return status && status !== "compliant"
+      }).length
+      
+      const safe = records.filter(r => {
+        const mrlStatus = (r.mrl_status || "").toLowerCase()
+        return mrlStatus === "safe"
+      }).length
+      
+      const unsafe = total - safe
+      const complianceRate = total > 0 ? Math.round((compliant / total) * 100) : 0
+      const safetyRate = total > 0 ? Math.round((safe / total) * 100) : 0
+      
+      // Country distribution with compliance breakdown
+      const complianceByCountry = {}
+      const byCountryDetails = {}
+      records.forEach(r => {
+        const country = r.country || "Unknown"
+        if (!complianceByCountry[country]) complianceByCountry[country] = { total: 0, compliant: 0, safe: 0 }
+        complianceByCountry[country].total++
+        if ((r.compliance_status || "").toLowerCase() === "compliant") complianceByCountry[country].compliant++
+        if ((r.mrl_status || "").toLowerCase() === "safe") complianceByCountry[country].safe++
+
+        if (!byCountryDetails[country]) byCountryDetails[country] = { count: 0, safe: 0, unsafe: 0, pending: 0 }
+        byCountryDetails[country].count++
+        const recordStatus = normalizeStatus(r)
+        if (recordStatus === "safe") byCountryDetails[country].safe++
+        else if (recordStatus === "unsafe") byCountryDetails[country].unsafe++
+        if (isPendingRecord(r)) byCountryDetails[country].pending++
+      })
+      const byCountry = Object.entries(complianceByCountry).reduce((acc, [c, v]) => { acc[c] = v.total; return acc }, {})
+      
+      // Farm safety analytics
+      const byDrug = records.reduce((acc, r) => { 
+        const name = r.drug_name || "Unknown"
+        acc[name] = (acc[name] || 0) + 1
+        return acc 
+      }, {})
+      
+      
+      // Farm safety analytics
+      const safetyByFarm = {}
+      records.forEach(r => {
+        const f = r.farm_id || r.farm_name || "Unknown"
+        if (!safetyByFarm[f]) safetyByFarm[f] = { total: 0, safe: 0, compliant: 0 }
+        safetyByFarm[f].total++
+        if ((r.mrl_status || "").toLowerCase() === "safe") safetyByFarm[f].safe++
+        if ((r.compliance_status || "").toLowerCase() === "compliant") safetyByFarm[f].compliant++
+      })
+      const byFarm = Object.entries(safetyByFarm).reduce((acc, [f, v]) => { acc[f] = v.total; return acc }, {})
+      
+      // Animal type analytics
+      const byAnimalType = records.reduce((acc, r) => { 
+        const type = r.animal_type || "Unknown"
+        acc[type] = (acc[type] || 0) + 1
+        return acc 
+      }, {})
+      
+      // Health status (problem) analytics
+      const byHealthStatus = records.reduce((acc, r) => { 
+        const status = r.health_status || "Unknown"
+        acc[status] = (acc[status] || 0) + 1
+        return acc 
+      }, {})
+      
+      // Region distribution
+      const byRegion = records.reduce((acc, r) => { 
+        const region = r.region || "Unknown"
+        acc[region] = (acc[region] || 0) + 1
+        return acc 
+      }, {})
+      
+      return { 
+        total, 
+        violations: unsafe,
+        safe,
+        compliant,
+        nonCompliant,
+        pending,
+        complianceRate,
+        safetyRate,
+        byDrug, 
+        byCountry, 
+        byFarm,
+        byAnimalType,
+        byHealthStatus,
+        byRegion,
+        complianceByCountry,
+        byCountryDetails,
+        safetyByFarm
+      }
+    } catch (err) {
+      console.error("Error calculating summary:", err)
+      return { total: 0, violations: 0, safe: 0, compliant: 0, nonCompliant: 0, pending: 0, byDrug: {}, byCountry: {}, byFarm: {}, byAnimalType: {}, byHealthStatus: {}, byRegion: {}, complianceByCountry: {}, byCountryDetails: {}, safetyByFarm: {}, complianceRate: 0, safetyRate: 0 }
     }
-    const reviewed = records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected")
-    const pending = records.filter(r => !r.vet_status || r.vet_status === "pending").length
-    const total = reviewed.length
-    const violations = reviewed.filter(r => r.status === "not safe").length
-    const safe = total - violations
-    
-    // Analytics by drug
-    const byDrug = reviewed.reduce((acc, r) => { const name = r.drug_name || "Unknown"; acc[name] = (acc[name] || 0) + 1; return acc }, {})
-    
-    // Analytics by country with details
-    const byCountryDetails = {}
-    reviewed.forEach(r => {
-      const c = r.country || "Unknown"
-      if (!byCountryDetails[c]) byCountryDetails[c] = { safe: 0, unsafe: 0, count: 0 }
-      byCountryDetails[c].count++
-      if (r.status === "safe") byCountryDetails[c].safe++
-      else byCountryDetails[c].unsafe++
-    })
-    const byCountry = Object.entries(byCountryDetails).reduce((acc, [c, v]) => { acc[c] = v.count; return acc }, {})
-    
-    // Analytics by farm with details
-    const byFarmDetails = {}
-    reviewed.forEach(r => {
-      const f = r.farm_id || "Unknown"
-      if (!byFarmDetails[f]) byFarmDetails[f] = { safe: 0, unsafe: 0, count: 0 }
-      byFarmDetails[f].count++
-      if (r.status === "safe") byFarmDetails[f].safe++
-      else byFarmDetails[f].unsafe++
-    })
-    const byFarm = Object.entries(byFarmDetails).reduce((acc, [f, v]) => { acc[f] = v.count; return acc }, {})
-    
-    // Top animals treated
-    const byAnimal = reviewed.reduce((acc, r) => { const a = r.animal_id || "Unknown"; acc[a] = (acc[a] || 0) + 1; return acc }, {})
-    
-    // Top problems
-    const byProblem = reviewed.reduce((acc, r) => { const p = r.problem || r.symptom || "Unknown"; acc[p] = (acc[p] || 0) + 1; return acc }, {})
-    
-    const weakDates = reviewed.reduce((acc, r) => { const key = r.administration_date || r.date || "Unknown"; acc[key] = (acc[key] || 0) + 1; return acc }, {})
-    return { total, violations, safe, pending, byDrug, byCountry, byFarm, weakDates, byAnimal, byProblem, byCountryDetails, byFarmDetails }
   }, [records])
 
   const filteredRecords = useMemo(() => {
     const term = search.toLowerCase()
     return records.filter((r) => {
-      const isReviewed = r.vet_status === "approved" || r.vet_status === "rejected"
-      if (!isReviewed) return false
-      
       // Search filter
-      const inTerm = [r.record_id, r.animal_id, r.farm_id, r.drug_name, r.species, r.country].join(" ").toLowerCase().includes(term)
+      const inTerm = [r.record_id, r.animal_id, r.farm_id, r.drug_name, r.animal_type, r.country].join(" ").toLowerCase().includes(term)
       if (!inTerm) return false
       
-      // Status filter
+      // Status filter by MRL compliance
       if (statusFilter !== "All") {
-        if (statusFilter === "Safe" && r.status !== "safe") return false
-        if (statusFilter === "Not Safe" && r.status !== "not safe") return false
+        if (statusFilter === "Safe" && r.mrl_status !== "Safe" && r.mrl_status !== "safe") return false
+        if (statusFilter === "Not Safe" && r.mrl_status === "Safe" || r.mrl_status === "safe") return false
       }
       
       // Country filter
@@ -221,59 +300,71 @@ const loadRecords = async () => {
       if (farmFilter !== "All" && r.farm_id !== farmFilter) return false
       
       // Legacy filter
-      if (filter === "Violations") return r.status === "not safe"
-      if (filter === "Safe") return r.status === "safe"
+      if (filter === "Violations") return r.mrl_status !== "Safe" && r.mrl_status !== "safe"
+      if (filter === "Safe") return r.mrl_status === "Safe" || r.mrl_status === "safe"
       return true
     })
   }, [records, search, filter, countryFilter, farmFilter, statusFilter])
 
-  const countryData = useMemo(() => Object.entries(summary.byCountry).map(([country, value]) => ({ country, value })), [summary.byCountry])
-
-  const chartData = useMemo(() => Object.entries(summary.byDrug).map(([drug, value]) => ({ drug, value })), [summary.byDrug])
-
   // Alert type detection
   const getAlertType = (record) => {
-    if (record.vet_status === "rejected") return { type: "Rejected Case", color: "rose", icon: "✗" }
-    const sameAnimalViolations = records.filter(r => r.animal_id === record.animal_id && r.status === "not safe").length
+    const lowStatus = (record.compliance_status || record.status || "").toString().toLowerCase()
+    if (lowStatus === "rejected") return { type: "Rejected Case", color: "rose", icon: "✖" }
+
+    const isViolation = record.mrl_status && record.mrl_status !== "Safe" && record.mrl_status !== "safe"
+    if (!isViolation) return { type: "Safe", color: "emerald", icon: "✓" }
+    
+    const sameAnimalViolations = records.filter(r => r.animal_id === record.animal_id && (r.mrl_status !== "Safe" && r.mrl_status !== "safe")).length
     if (sameAnimalViolations > 1) return { type: "Repeated Animal", color: "amber", icon: "🔄" }
-    if (Number(record.dose || 0) > 100) return { type: "High Dose", color: "rose", icon: "⚠️" }
+    if (Number(record.residue_value || 0) > Number(record.MRL_limit || 0)) return { type: "High Residue", color: "rose", icon: "⚠️" }
     return { type: "Violation", color: "rose", icon: "!" }
   }
 
   // Enhanced alerts list
   const enhancedAlerts = useMemo(() => {
-    return records
-      .filter(r => r.status === "not safe" && (r.vet_status === "approved" || r.vet_status === "rejected"))
-      .map(r => ({ ...r, alertInfo: getAlertType(r) }))
-      .sort((a, b) => {
-        const priorityMap = { "Rejected Case": 0, "Repeated Animal": 1, "High Dose": 2, "Violation": 3 }
-        return (priorityMap[a.alertInfo.type] || 3) - (priorityMap[b.alertInfo.type] || 3)
-      })
-      .slice(0, 15)
+    try {
+      return records
+        .filter(r => r.mrl_status && r.mrl_status !== "Safe" && r.mrl_status !== "safe")
+        .map(r => ({ ...r, alertInfo: getAlertType(r) }))
+        .sort((a, b) => {
+          const priorityMap = { "Repeated Animal": 0, "High Residue": 1, "Violation": 2, "Safe": 3 }
+          return (priorityMap[a.alertInfo.type] || 3) - (priorityMap[b.alertInfo.type] || 3)
+        })
+        .slice(0, 15)
+    } catch (err) {
+      console.error("Error processing enhanced alerts:", err)
+      return []
+    }
   }, [records])
 
   // Consumer Safety Report - Last Dose & Withdrawal Status
   const consumerSafetyData = useMemo(() => {
-    const reviewed = records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected");
+    try {
+      // Process all records for consumer safety data
+      const reviewed = records.length > 0 ? records : [];
     
-    // Group by animal and get last dose
-    const animalLastDose = {};
-    reviewed.forEach(r => {
-      const animalKey = `${r.farm_id || "Unknown"}__${r.animal_id || "Unknown"}`;
-      const adminDate = new Date(r.administration_date || r.date || 0);
+      // Group by animal and get last dose
+      const animalLastDose = {};
+      reviewed.forEach(r => {
+        const animalKey = `${r.farm_id || "Unknown"}__${r.animal_id || "Unknown"}`;
+        const adminDate = new Date(r.administration_date || r.date || 0);
+        
+        if (!animalLastDose[animalKey] || adminDate > new Date(animalLastDose[animalKey].administration_date || 0)) {
+          animalLastDose[animalKey] = r;
+        }
+      });
       
-      if (!animalLastDose[animalKey] || adminDate > new Date(animalLastDose[animalKey].administration_date || 0)) {
-        animalLastDose[animalKey] = r;
-      }
-    });
-    
-    return Object.values(animalLastDose)
-      .map(record => ({
-        ...record,
-        withdrawalStatus: getWithdrawalStatus(record),
-        productAvailability: getProductAvailability(record)
-      }))
-      .sort((a, b) => new Date(b.administration_date || b.date || 0) - new Date(a.administration_date || a.date || 0));
+      return Object.values(animalLastDose)
+        .map(record => ({
+          ...record,
+          withdrawalStatus: getWithdrawalStatus(record),
+          productAvailability: getProductAvailability(record)
+        }))
+        .sort((a, b) => new Date(b.administration_date || b.date || 0) - new Date(a.administration_date || a.date || 0));
+    } catch (err) {
+      console.error("Error processing consumer safety data:", err)
+      return []
+    }
   }, [records])
 
   // Safety summary statistics
@@ -288,30 +379,38 @@ const loadRecords = async () => {
 
   // Reports summary data
   const reportsSummary = useMemo(() => {
-    const reviewed = records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected")
-    const countryWise = {}
-    const problemWise = {}
-    
-    reviewed.forEach(r => {
-      const c = r.country || "Unknown"
-      const p = r.problem || r.symptom || "Unknown"
-      countryWise[c] = (countryWise[c] || 0) + 1
-      problemWise[p] = (problemWise[p] || 0) + 1
-    })
-    
-    return { countryWise, problemWise }
+    try {
+      const countryWise = {}
+      const problemWise = {}
+      
+      records.forEach(r => {
+        const c = r.country || "Unknown"
+        const p = r.health_status || "Unknown"
+        countryWise[c] = (countryWise[c] || 0) + 1
+        problemWise[p] = (problemWise[p] || 0) + 1
+      })
+      
+      return { countryWise, problemWise }
+    } catch (err) {
+      console.error("Error processing reports summary:", err)
+      return { countryWise: {}, problemWise: {} }
+    }
   }, [records])
 
   const recentActivities = useMemo(() => sortByDateDesc(records).slice(0, 5), [records])
   const topViolations = useMemo(() => records.filter(isViolation).sort((a, b) => new Date(b.administration_date || b.date || 0) - new Date(a.administration_date || a.date || 0)).slice(0, 6), [records])
 
   // New analytics data
-  const uniqueCountries = useMemo(() => Object.keys(summary.byCountryDetails).sort(), [summary.byCountryDetails])
-  const uniqueFarms = useMemo(() => Object.keys(summary.byFarmDetails).sort(), [summary.byFarmDetails])
-  const topAnimals = useMemo(() => Object.entries(summary.byAnimal).sort((a, b) => b[1] - a[1]).slice(0, 10), [summary.byAnimal])
-  const topProblems = useMemo(() => Object.entries(summary.byProblem).sort((a, b) => b[1] - a[1]).slice(0, 8), [summary.byProblem])
-  const criticalFarms = useMemo(() => Object.entries(summary.byFarmDetails).filter(([_, v]) => v.unsafe > 0).sort((a, b) => b[1].unsafe - a[1].unsafe).slice(0, 5), [summary.byFarmDetails])
-  const farmData = useMemo(() => Object.entries(summary.byFarm).map(([farm, value]) => ({ farm, value })).slice(0, 8), [summary.byFarm])
+  const uniqueCountries = useMemo(() => Object.keys(summary.complianceByCountry).sort(), [summary.complianceByCountry])
+  const uniqueFarms = useMemo(() => Object.keys(summary.safetyByFarm).sort(), [summary.safetyByFarm])
+  const topAnimalTypes = useMemo(() => Object.entries(summary.byAnimalType).sort((a, b) => b[1] - a[1]).slice(0, 8), [summary.byAnimalType])
+  const topHealthIssues = useMemo(() => Object.entries(summary.byHealthStatus).sort((a, b) => b[1] - a[1]).slice(0, 8), [summary.byHealthStatus])
+  const topProblems = useMemo(() => Object.entries(summary.byHealthStatus).sort((a, b) => b[1] - a[1]), [summary.byHealthStatus])
+  const topAnimals = useMemo(() => Object.entries(records.reduce((acc, r) => { const animal = r.animal_id || "Unknown"; acc[animal] = (acc[animal] || 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]), [records])
+  const criticalFarms = useMemo(() => Object.entries(summary.safetyByFarm).sort((a, b) => (b[1].total - b[1].safe) - (a[1].total - a[1].safe)).slice(0, 5), [summary.safetyByFarm])
+  const farmData = useMemo(() => Object.entries(summary.byFarm).map(([farm, value]) => ({ farm: farm.substring(0, 12), value })).slice(0, 8), [summary.byFarm])
+  const countryData = useMemo(() => Object.entries(summary.byCountry).map(([country, value]) => ({ country, value })).slice(0, 8), [summary.byCountry])
+  const chartData = useMemo(() => Object.entries(summary.byDrug).map(([drug, value]) => ({ drug: drug.substring(0, 12), value })), [summary.byDrug])
 
   const getAnimalHistory = (animalId) => {
     return records
@@ -320,38 +419,52 @@ const loadRecords = async () => {
   }
 
   const getActivityTimeline = useMemo(() => {
-    const activities = []
-    records.forEach((r) => {
-      activities.push({
-        date: r.administration_date,
-        action: `Farmer submitted record for ${r.animal_id}`,
-        type: "submitted",
-        record_id: r.record_id
-      })
-      if (r.vet_status === "approved" || r.vet_status === "rejected") {
+    try {
+      const activities = []
+      records.forEach((r) => {
         activities.push({
-          date: r.administration_date,
-          action: `Vet ${r.vet_status} record for animal ${r.animal_id}`,
-          type: r.vet_status === "approved" ? "approved" : "rejected",
+          date: r.administration_date || r.date,
+          action: `${r.animal_type} @ ${r.farm_id || "Unknown"}: ${r.drug_name || "Unknown"} - ${r.mrl_status || "Unknown"}`,
+          type: (r.mrl_status !== "Safe" && r.mrl_status !== "safe") ? "violation" : "safe",
           record_id: r.record_id
         })
-      }
-    })
-    return activities.sort((a, b) => new Date(b.date) - new Date(a.date))
+      })
+      return activities.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 20)
+    } catch (err) {
+      console.error("Error processing activity timeline:", err)
+      return []
+    }
   }, [records])
 
   const exportReport = () => {
-    const csv = [
-      ["record_id", "animal_id", "farm_id", "country", "drug_name", "status", "administration_date", "vet_status"].join(","),
-      ...records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected").map((r) => [r.record_id, r.animal_id, r.farm_id, r.country, r.drug_name, r.status, r.administration_date, r.vet_status].join(","))
-    ].join("\n")
-    const href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
-    const a = document.createElement("a")
-    a.href = href
-    a.download = `livestock-report-${new Date().toISOString().split("T")[0]}.csv`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
+    try {
+      const csv = [
+        ["record_id", "animal_id", "farm_id", "country", "drug_name", "mrl_status", "compliance_status", "animal_type", "administration_date", "residue_value", "MRL_limit"].join(","),
+        ...records.map((r) => [
+          r.record_id || "",
+          r.animal_id || "",
+          r.farm_id || "",
+          r.country || "",
+          r.drug_name || "",
+          r.mrl_status || "",
+          r.compliance_status || "",
+          r.animal_type || "",
+          r.administration_date || "",
+          r.residue_value || "",
+          r.MRL_limit || ""
+        ].join(","))
+      ].join("\n")
+      const href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
+      const a = document.createElement("a")
+      a.href = href
+      a.download = `livestock-report-${new Date().toISOString().split("T")[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch (err) {
+      console.error("Error exporting report:", err)
+      alert("Error exporting report")
+    }
   }
 
   const exportPDF = () => {
@@ -548,10 +661,10 @@ const loadRecords = async () => {
               </div>
               <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-5">
                 {["India", "USA", "Germany", "Brazil", "Australia"].map((country) => {
-                  const countryRecords = records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected" ? r.country === country : false)
-                  const safeCont = countryRecords.filter(r => r.status === "safe").length
-                  const unsafeCont = countryRecords.filter(r => r.status === "not safe").length
-                  const pendingCont = records.filter(r => r.vet_status !== "approved" && r.vet_status !== "rejected" && r.country === country).length
+                  const countryRecords = records.filter(r => r.country === country)
+                  const safeCont = countryRecords.filter(r => r.mrl_status === "Safe" || r.mrl_status === "safe").length
+                  const unsafeCont = countryRecords.filter(r => r.mrl_status && r.mrl_status !== "Safe" && r.mrl_status !== "safe").length
+                  const pendingCont = countryRecords.filter(r => isPendingRecord(r)).length
                   const total = safeCont + unsafeCont + pendingCont
                   
                   let statusColor = "bg-slate-700 border-slate-600"
@@ -580,13 +693,12 @@ const loadRecords = async () => {
                       <div className="mt-2 space-y-1 text-xs">
                         <div className="flex justify-between"><span className="text-slate-400">Safe:</span><span className="text-emerald-400 font-semibold">{safeCont}</span></div>
                         <div className="flex justify-between"><span className="text-slate-400">Not Safe:</span><span className="text-rose-400 font-semibold">{unsafeCont}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Pending:</span><span className="text-amber-400 font-semibold">{pendingCont}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Total:</span><span className="text-slate-300 font-semibold">{total}</span></div>
                       </div>
                       <div className="mt-3 w-full bg-slate-700 rounded-full h-1.5">
                         <div className="flex h-full rounded-full overflow-hidden">
                           {safeCont > 0 && <div className="bg-emerald-500" style={{ width: `${total > 0 ? (safeCont / total) * 100 : 0}%` }}></div>}
                           {unsafeCont > 0 && <div className="bg-rose-500" style={{ width: `${total > 0 ? (unsafeCont / total) * 100 : 0}%` }}></div>}
-                          {pendingCont > 0 && <div className="bg-amber-500" style={{ width: `${total > 0 ? (pendingCont / total) * 100 : 0}%` }}></div>}
                         </div>
                       </div>
                     </div>
@@ -599,7 +711,7 @@ const loadRecords = async () => {
             <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
               <div className="mb-3">
                 <h3 className="text-sm font-semibold text-cyan-300">Complete Records Database</h3>
-                <p className="text-xs text-slate-400">Showing {filteredRecords.length} of {records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected").length} reviewed records</p>
+                <p className="text-xs text-slate-400">Showing {filteredRecords.length} of {records.length} total records</p>
               </div>
               <div className="overflow-y-auto max-h-96">
                 <table className="w-full text-left text-xs border-collapse table-fixed">
@@ -617,7 +729,7 @@ const loadRecords = async () => {
                   </thead>
                   <tbody className="divide-y divide-slate-700">
                     {filteredRecords.length > 0 ? filteredRecords.slice(0, 20).map((r) => (
-                      <tr key={r.record_id} className={`hover:bg-slate-700/50 ${r.status === "not safe" ? "bg-rose-900/10" : "bg-emerald-900/5"} border-b border-slate-700`}>
+                      <tr key={r.record_id} className={`hover:bg-slate-700/50 ${(r.mrl_status !== "Safe" && r.mrl_status !== "safe") ? "bg-rose-900/10" : "bg-emerald-900/5"} border-b border-slate-700`}>
                         <td className="px-1.5 py-2 text-cyan-300 font-semibold text-[10px] truncate">{r.record_id}</td>
                         <td className="px-1.5 py-2 text-slate-300 text-[10px] truncate">{r.country || "—"}</td>
                         <td className="px-1.5 py-2 text-slate-300 text-[10px] truncate">{r.farm_id || "—"}</td>
@@ -625,8 +737,8 @@ const loadRecords = async () => {
                         <td className="px-1.5 py-2 text-amber-300 text-[10px] font-semibold truncate">{r.drug_name || "—"}</td>
                         <td className="px-1.5 py-2 text-slate-400 text-[10px] truncate">{r.administration_date || r.date || "—"}</td>
                         <td className="px-1.5 py-2 text-[10px]">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold inline-block truncate max-w-16 ${r.status === "safe" ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
-                            {r.status === "safe" ? "SAFE" : "UNSAFE"}
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold inline-block truncate max-w-16 ${(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
+                            {(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "SAFE" : "UNSAFE"}
                           </span>
                         </td>
                         <td className="px-1.5 py-2 text-[10px]">
@@ -654,25 +766,57 @@ const loadRecords = async () => {
 
           {active === "Analytics" && (
           <section className="space-y-3">
-            {/* EXISTING 4 CHARTS */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-              <h2 className="text-lg font-semibold mb-3">📊 Core Analytics</h2>
-              <div className="grid gap-3 lg:grid-cols-4 h-64">
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Safe vs Violation</div><ResponsiveContainer width="100%" height={180}><PieChart><Pie data={[{ name: "Safe", value: summary.safe }, { name: "Violation", value: summary.violations }]} dataKey="value" cx="50%" cy="50%" outerRadius={60}><Cell fill="#10b981"/><Cell fill="#ef4444"/></Pie><Tooltip /></PieChart></ResponsiveContainer></div>
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Drug usage</div><ResponsiveContainer width="100%" height={180}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="drug" tick={{ fontSize: 10 }} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#0ea5e9" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Records trend</div><ResponsiveContainer width="100%" height={180}><LineChart data={Object.entries(summary.weakDates).slice(-10).map(([date, count]) => ({ date, count }))}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div>
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Country Distribution</div><ResponsiveContainer width="100%" height={180}><BarChart data={countryData.slice(0, 5)}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="country" tick={{ fontSize: 10 }} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#f59e0b" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
+            {/* ANALYTICS STATISTICS CARDS */}
+            <div className="grid gap-3 lg:grid-cols-4">
+              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+                <h3 className="text-xs uppercase text-slate-400 font-semibold mb-2">Total Records</h3>
+                <div className="text-3xl font-bold text-cyan-400">{summary.total}</div>
+                <div className="text-xs text-slate-400 mt-1">Complete treatment records</div>
+                <div className="mt-2 px-2 py-1 bg-cyan-900/30 rounded text-cyan-300 text-xs text-center">All records in system</div>
+              </div>
+              <div className="rounded-2xl bg-emerald-900/20 border border-emerald-500/40 p-3 shadow-lg">
+                <h3 className="text-xs uppercase text-emerald-400 font-semibold mb-2">Safety Rate</h3>
+                <div className="text-3xl font-bold text-emerald-300">{summary.safetyRate}%</div>
+                <div className="text-xs text-slate-400 mt-1">{summary.safe} safe records</div>
+                <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${summary.safetyRate}%` }}></div>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-rose-900/20 border border-rose-500/40 p-3 shadow-lg">
+                <h3 className="text-xs uppercase text-rose-400 font-semibold mb-2">Unsafe Records</h3>
+                <div className="text-3xl font-bold text-rose-300">{summary.violations}</div>
+                <div className="text-xs text-slate-400 mt-1">{Math.round((summary.violations / summary.total) * 100) || 0}% of total</div>
+                <div className="mt-2 px-2 py-1 bg-rose-900/30 rounded text-rose-300 text-xs text-center">Require attention</div>
+              </div>
+              <div className="rounded-2xl bg-amber-900/20 border border-amber-500/40 p-3 shadow-lg">
+                <h3 className="text-xs uppercase text-amber-400 font-semibold mb-2">Compliance Rate</h3>
+                <div className="text-3xl font-bold text-amber-300">{summary.complianceRate}%</div>
+                <div className="text-xs text-slate-400 mt-1">{summary.compliant} compliant records</div>
+                <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
+                  <div className="bg-amber-500 h-full rounded-full" style={{ width: `${summary.complianceRate}%` }}></div>
+                </div>
               </div>
             </div>
 
-            {/* ADDITIONAL ANALYTICS CHARTS */}
-            <div className="grid gap-3 lg:grid-cols-2 h-64">
+            {/* CORE ANALYTICS CHARTS */}
+            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <h2 className="text-lg font-semibold mb-3">📊 Core Analytics</h2>
+              <div className="grid gap-3 lg:grid-cols-4 h-72">
+                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">MRL Safety Status</div><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={[{ name: "Safe", value: summary.safe }, { name: "Unsafe", value: summary.violations }]} dataKey="value" cx="50%" cy="50%" outerRadius={60}><Cell fill="#10b981"/><Cell fill="#ef4444"/></Pie><Tooltip /></PieChart></ResponsiveContainer></div>
+                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Drug Usage</div><ResponsiveContainer width="100%" height={200}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="drug" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#0ea5e9" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
+                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Country Distribution</div><ResponsiveContainer width="100%" height={200}><BarChart data={countryData.slice(0, 6)}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="country" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#f59e0b" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
+                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Animal Type Distribution</div><ResponsiveContainer width="100%" height={200}><BarChart data={topAnimalTypes.map(([type, value]) => ({ type: type.substring(0, 8), value }))}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="type" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#8b5cf6" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
+              </div>
+            </div>
+
+            {/* ADDITIONAL ANALYTICS */}
+            <div className="grid gap-3 lg:grid-cols-2 h-72">
               <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-                <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Problems Distribution</div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={topProblems.map(([problem, value]) => ({ problem: problem.substring(0, 10), value }))}>
+                <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Health Issues Distribution</div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={topHealthIssues.map(([condition, value]) => ({ condition: condition.substring(0, 12), value }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="problem" tick={{ fontSize: 9 }} stroke="#cbd5e1" />
+                    <XAxis dataKey="condition" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" />
                     <YAxis stroke="#cbd5e1" />
                     <Tooltip />
                     <Bar dataKey="value" fill="#ec4899" radius={[5,5,0,0]} />
@@ -680,44 +824,16 @@ const loadRecords = async () => {
                 </ResponsiveContainer>
               </div>
               <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-                <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Farm Activity</div>
-                <ResponsiveContainer width="100%" height={220}>
+                <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Farm Activity & Safety</div>
+                <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={farmData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="farm" tick={{ fontSize: 9 }} stroke="#cbd5e1" />
+                    <XAxis dataKey="farm" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" />
                     <YAxis stroke="#cbd5e1" />
                     <Tooltip />
                     <Bar dataKey="value" fill="#06b6d4" radius={[5,5,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* MINI ANALYTICS CARDS */}
-            <div className="grid gap-3 lg:grid-cols-3">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-                <h3 className="text-xs uppercase text-slate-400 font-semibold mb-2">Compliance Rate</h3>
-                <div className="text-3xl font-bold text-emerald-400">{summary.total > 0 ? Math.round((summary.safe / summary.total) * 100) : 0}%</div>
-                <div className="text-xs text-slate-400 mt-1">{summary.safe} safe of {summary.total} reviewed</div>
-                <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
-                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: summary.total > 0 ? `${(summary.safe / summary.total) * 100}%` : "0%" }}></div>
-                </div>
-              </div>
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-                <h3 className="text-xs uppercase text-slate-400 font-semibold mb-2">Violation Rate</h3>
-                <div className="text-3xl font-bold text-rose-400">{summary.total > 0 ? Math.round((summary.violations / summary.total) * 100) : 0}%</div>
-                <div className="text-xs text-slate-400 mt-1">{summary.violations} violations of {summary.total} reviewed</div>
-                <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
-                  <div className="bg-rose-500 h-full rounded-full" style={{ width: summary.total > 0 ? `${(summary.violations / summary.total) * 100}%` : "0%" }}></div>
-                </div>
-              </div>
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-                <h3 className="text-xs uppercase text-slate-400 font-semibold mb-2">Pending Cases</h3>
-                <div className="text-3xl font-bold text-amber-400">{summary.pending}</div>
-                <div className="text-xs text-slate-400 mt-1">Awaiting veterinary review</div>
-                <div className="mt-2 px-2 py-1 bg-amber-900/30 text-amber-300 text-xs rounded text-center">
-                  {summary.pending === 0 ? "All caught up ✓" : "Action required"}
-                </div>
               </div>
             </div>
           </section>
@@ -795,7 +911,7 @@ const loadRecords = async () => {
                           </div>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded ${badgeColorMap[r.alertInfo.color]}`}>
-                          {r.status === "not safe" ? "NOT SAFE" : "VIOLATION"}
+                          {(r.mrl_status !== "Safe" && r.mrl_status !== "safe") ? "NOT SAFE" : "SAFE"}
                         </span>
                       </div>
 
@@ -834,15 +950,15 @@ const loadRecords = async () => {
                           <div className="text-slate-100">{r.administration_date || r.date || "—"}</div>
                         </div>
                         <div>
-                          <span className="text-slate-400">Vet Status:</span>
-                          <div className={`text-xs font-semibold px-1.5 py-0.5 rounded text-center ${r.vet_status === "approved" ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
-                            {r.vet_status || "pending"}
+                          <span className="text-slate-400">MRL Status:</span>
+                          <div className={`text-xs font-semibold px-1.5 py-0.5 rounded text-center ${(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
+                            {r.mrl_status || "Unknown"}
                           </div>
                         </div>
                         <div>
-                          <span className="text-slate-400">Final Status:</span>
-                          <div className={`text-xs font-semibold ${r.status === "safe" ? "text-emerald-400" : "text-rose-400"}`}>
-                            {r.status === "safe" ? "✓ SAFE" : "✗ NOT SAFE"}
+                          <span className="text-slate-400">Compliance:</span>
+                          <div className={`text-xs font-semibold ${(r.compliance_status === "Compliant" || r.compliance_status === "compliant") ? "text-emerald-400" : "text-amber-400"}`}>
+                            {(r.compliance_status === "Compliant" || r.compliance_status === "compliant") ? "✓ Compliant" : "⚠ Non-compliant"}
                           </div>
                         </div>
                       </div>
@@ -1104,7 +1220,7 @@ const loadRecords = async () => {
               <div className="grid gap-2 grid-cols-2 md:grid-cols-4 text-xs">
                 <div className="flex items-center gap-2 text-slate-300">
                   <span className="text-xs">📊</span>
-                  <span>{records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected").length} total reviewed</span>
+                  <span>{records.length} total records</span>
                 </div>
                 <div className="flex items-center gap-2 text-emerald-300">
                   <span className="text-xs">✓</span>
@@ -1128,7 +1244,7 @@ const loadRecords = async () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center p-2 rounded bg-slate-900">
                     <span className="text-slate-400">Total Records</span>
-                    <span className="text-slate-100 font-semibold">{records.filter(r => r.vet_status === "approved" || r.vet_status === "rejected").length}</span>
+                    <span className="text-slate-100 font-semibold">{records.length}</span>
                   </div>
                   <div className="flex justify-between items-center p-2 rounded bg-slate-900">
                     <span className="text-emerald-400">Safe Records</span>
@@ -1258,7 +1374,7 @@ const loadRecords = async () => {
                   </thead>
                   <tbody className="divide-y divide-slate-700">
                     {filteredRecords.length > 0 ? filteredRecords.slice(0, 20).map((r) => (
-                      <tr key={r.record_id} className={`hover:bg-slate-700/30 transition ${r.status === "not safe" ? "bg-rose-900/10" : "bg-emerald-900/5"}`}>
+                      <tr key={r.record_id} className={`hover:bg-slate-700/30 transition ${normalizeStatus(r) === "unsafe" ? "bg-rose-900/10" : "bg-emerald-900/5"}`}>
                         <td className="px-3 py-2 text-cyan-300 font-semibold whitespace-nowrap">{r.record_id}</td>
                         <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{r.country || "—"}</td>
                         <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{r.farm_id || "—"}</td>
@@ -1266,8 +1382,8 @@ const loadRecords = async () => {
                         <td className="px-3 py-2 text-amber-300 font-semibold whitespace-nowrap">{r.drug_name || "—"}</td>
                         <td className="px-3 py-2 text-slate-400 whitespace-nowrap text-[10px]">{r.administration_date || r.date || "—"}</td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${r.status === "safe" ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
-                            {r.status === "safe" ? "SAFE" : "NOT SAFE"}
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${normalizeStatus(r) === "safe" ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
+                            {normalizeStatus(r) === "safe" ? "SAFE" : "NOT SAFE"}
                           </span>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
@@ -1308,10 +1424,10 @@ const loadRecords = async () => {
             <div className="space-y-2">
               {getAnimalHistory(animalHistory).length > 0 ? (
                 getAnimalHistory(animalHistory).map((r) => (
-                  <div key={r.record_id} className={`rounded border p-2 text-xs ${r.status === "safe" ? "border-emerald-500/30 bg-emerald-900/10" : r.status === "not safe" ? "border-rose-500/30 bg-rose-900/10" : "border-amber-500/30 bg-amber-900/10"}`}>
+                  <div key={r.record_id} className={`rounded border p-2 text-xs ${normalizeStatus(r) === "safe" ? "border-emerald-500/30 bg-emerald-900/10" : normalizeStatus(r) === "unsafe" ? "border-rose-500/30 bg-rose-900/10" : "border-amber-500/30 bg-amber-900/10"}`}>
                     <div className="flex justify-between mb-1">
                       <span className="font-semibold">{r.record_id}</span>
-                      <span className={`text-[10px] px-2 py-1 rounded ${r.status === "safe" ? "text-emerald-300" : r.status === "not safe" ? "text-rose-300" : "text-amber-300"}`}>{r.status || "pending"}</span>
+                      <span className={`text-[10px] px-2 py-1 rounded ${normalizeStatus(r) === "safe" ? "text-emerald-300" : normalizeStatus(r) === "unsafe" ? "text-rose-300" : "text-amber-300"}`}>{(r.status || r.mrl_status || r.compliance_status || "pending")}</span>
                     </div>
                     <div><span className="text-slate-400">Drug:</span> {r.drug_name}</div>
                     <div><span className="text-slate-400">Problem:</span> {r.problem || r.symptom}</div>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import Sidebar from "../components/Sidebar"
 import Loading from "../components/Loading"
+import Button from "../components/Button"
 
 const sidebarItems = ["Dashboard", "Records", "Violations", "Recommendations", "Risk Analysis"]
 
@@ -177,7 +178,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
       if (countryFilter !== "All" && r.country !== countryFilter) return false
       if (farmFilter !== "All" && r.farm_id !== farmFilter) return false
       if (statusFilter !== "All") {
-        const statusMap = { "Pending": "not reviewed", "Approved": "approved", "Rejected": "rejected" }
+        const statusMap = { "Pending": "not reviewed", "Not Reviewed": "not reviewed", "Approved": "approved", "Rejected": "rejected" }
         const mappedStatus = statusMap[statusFilter] || statusFilter.toLowerCase()
         if (r.vet_status !== mappedStatus) return false
       }
@@ -257,10 +258,19 @@ function VetDashboard({ isDark, onThemeToggle }) {
                 <h1 className="text-2xl font-bold">Clinical Compliance & Safety Center</h1>
                 <p className="mt-1 text-slate-300">Monitor all records, focus on violations, and provide actionable guidance.</p>
               </div>
-              <div className="flex gap-2 flex-wrap text-xs text-slate-200">
-                <div className="rounded-full bg-blue-500/20 px-3 py-1 border border-blue-400/50">Total {summary.total}</div>
-                <div className="rounded-full bg-rose-500/20 px-3 py-1 border border-rose-400/50">⚠️ Violations {summary.violations}</div>
-                <div className="rounded-full bg-emerald-500/20 px-3 py-1 border border-emerald-400/50">✔️ Safe {summary.safe}</div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <div className="min-w-[110px] rounded-full bg-sky-500/20 border border-sky-400/30 px-4 py-2 text-slate-50 shadow-lg shadow-sky-500/15">
+                  <div className="text-[9px] uppercase tracking-[0.35em] text-sky-100">Total</div>
+                  <div className="mt-2 text-2xl font-bold">{summary.total}</div>
+                </div>
+                <div className="min-w-[95px] rounded-2xl bg-rose-500/20 border border-rose-400/30 px-4 py-2 text-slate-50 shadow-lg shadow-rose-500/15">
+                  <div className="text-[9px] uppercase tracking-[0.35em] text-rose-100">Violations</div>
+                  <div className="mt-2 text-2xl font-bold">{summary.violations}</div>
+                </div>
+                <div className="min-w-[125px] rounded-[30px_10px_30px_10px] bg-emerald-500/20 border border-emerald-400/30 px-4 py-2 text-slate-50 shadow-lg shadow-emerald-500/15">
+                  <div className="text-[9px] uppercase tracking-[0.35em] text-emerald-100">Safe</div>
+                  <div className="mt-2 text-2xl font-bold">{summary.safe}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -270,45 +280,52 @@ function VetDashboard({ isDark, onThemeToggle }) {
               {/* Quick Action Panel */}
               <div className="rounded-2xl bg-slate-800 border border-slate-700 p-4 shadow-lg">
                 <h3 className="text-sm font-semibold text-cyan-300 mb-3">Quick Actions</h3>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-3 flex-wrap">
                   <button 
-                    onClick={() => document.getElementById('pending-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="px-4 py-2 bg-amber-600/20 border border-amber-500/50 text-amber-200 rounded-lg hover:bg-amber-600/30 transition text-sm font-medium"
+                    onClick={() => {
+                      setActive("Records")
+                      setStatusFilter("Not Reviewed")
+                      setFilter("All")
+                      setCountryFilter("All")
+                      setFarmFilter("All")
+                      setSearch("")
+                      setTimeout(() => document.getElementById('pending-section')?.scrollIntoView({ behavior: 'smooth' }), 100)
+                    }}
+                    className="px-5 py-3 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-slate-950 rounded-2xl shadow-lg shadow-amber-500/20 hover:scale-[1.02] hover:shadow-amber-500/30 transition font-semibold text-sm"
                   >
                     ⏳ View Pending
                   </button>
                   <button 
-                    onClick={() => document.getElementById('approved-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="px-4 py-2 bg-emerald-600/20 border border-emerald-500/50 text-emerald-200 rounded-lg hover:bg-emerald-600/30 transition text-sm font-medium"
+                    onClick={() => {
+                      setActive("Records")
+                      setStatusFilter("Approved")
+                      setFilter("All")
+                      setCountryFilter("All")
+                      setFarmFilter("All")
+                      setSearch("")
+                      setTimeout(() => document.getElementById('approved-section')?.scrollIntoView({ behavior: 'smooth' }), 100)
+                    }}
+                    className="px-5 py-3 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-slate-950 rounded-2xl shadow-lg shadow-emerald-500/20 hover:scale-[1.02] hover:shadow-emerald-500/30 transition font-semibold text-sm"
                   >
                     ✓ View Approved
                   </button>
                   <button 
-                    onClick={() => document.getElementById('rejected-section')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="px-4 py-2 bg-rose-600/20 border border-rose-500/50 text-rose-200 rounded-lg hover:bg-rose-600/30 transition text-sm font-medium"
+                    onClick={() => {
+                      setActive("Records")
+                      setStatusFilter("Rejected")
+                      setFilter("All")
+                      setCountryFilter("All")
+                      setFarmFilter("All")
+                      setSearch("")
+                      setTimeout(() => document.getElementById('rejected-section')?.scrollIntoView({ behavior: 'smooth' }), 100)
+                    }}
+                    className="px-5 py-3 bg-gradient-to-r from-rose-400 via-fuchsia-400 to-purple-500 text-slate-950 rounded-2xl shadow-lg shadow-rose-500/20 hover:scale-[1.02] hover:shadow-rose-500/30 transition font-semibold text-sm"
                   >
                     ✗ View Rejected
                   </button>
                 </div>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-3">
-              <div className="rounded-2xl bg-blue-900/15 border border-blue-500/40 p-3 shadow-lg">
-                <div className="text-xs uppercase text-blue-200">Records</div>
-                <div className="mt-2 text-3xl font-bold text-blue-300">📊 {summary.total}</div>
-                <div className="mt-1 text-blue-200">All active traceability cases.</div>
-              </div>
-              <div className="rounded-2xl bg-rose-900/15 border border-rose-500/40 p-3 shadow-lg">
-                <div className="text-xs uppercase text-rose-200">Violations</div>
-                <div className="mt-2 text-3xl font-bold text-rose-300">⚠️ {summary.violations}</div>
-                <div className="mt-1 text-rose-200">Priority cases requiring intervention.</div>
-              </div>
-              <div className="rounded-2xl bg-emerald-900/15 border border-emerald-500/40 p-3 shadow-lg">
-                <div className="text-xs uppercase text-emerald-200">Safe</div>
-                <div className="mt-2 text-3xl font-bold text-emerald-300">✔️ {summary.safe}</div>
-                <div className="mt-1 text-emerald-200">Compliant records in control.</div>
-              </div>
-            </div>
 
             {/* Status Distribution Bar */}
             <div className="rounded-2xl bg-slate-800 border border-slate-700 p-4 shadow-lg">

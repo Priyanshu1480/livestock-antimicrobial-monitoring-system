@@ -1,4 +1,5 @@
 ﻿import { useNavigate } from "react-router-dom"
+import Button from "../components/Button"
 
 const roles = [
   { id: "farmer", label: "Farmer", emoji: "🐄", description: "Submit farm medication records" },
