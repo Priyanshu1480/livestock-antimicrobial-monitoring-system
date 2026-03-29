@@ -5,6 +5,11 @@ import Sidebar from "../components/Sidebar"
 import Loading from "../components/Loading"
 import Button from "../components/Button"
 
+const RAW_API_URL = import.meta.env.VITE_API_URL || ""
+const API_URL = RAW_API_URL
+  ? RAW_API_URL.replace(/\/+$/, "").replace(/\/api$/i, "")
+  : "http://localhost:5000"
+
 const sidebarItems = ["Dashboard", "Records", "Violations", "Recommendations", "Risk Analysis"]
 
 function isViolation(record) {
@@ -41,7 +46,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [animalHistory, setAnimalHistory] = useState(null)
   const [remarks, setRemarks] = useState("")
-  const [suggestionText, setSuggestionText] = useState("")
+  const [pendingAction, setPendingAction] = useState(null)
   const [selectedRecords, setSelectedRecords] = useState([])
   const [riskFilter, setRiskFilter] = useState("All")
 
@@ -54,7 +59,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
   const loadRecords = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/records`)
+      const res = await fetch(`${API_URL}/api/records`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (Array.isArray(data)) {
@@ -72,16 +77,14 @@ function VetDashboard({ isDark, onThemeToggle }) {
     }
   }
 
-  const updateRecordStatus = async (recordId, action, suggestion) => {
+  const updateRecordStatus = async (recordId, action) => {
     try {
       setLoading(true)
       const updatePayload = {
-        vet_status: action === "approved" ? "approved" : "rejected",
-        status: action === "approved" ? "safe" : "not safe",
-        vet_notes: suggestion || "",
-        vet_remarks: remarks || ""
+        status: action === "approved" ? "Approved" : "Rejected",
+        vet_notes: remarks || ""
       }
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/records/${recordId}`, {
+      const res = await fetch(`${API_URL}/api/records/${recordId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
@@ -91,8 +94,8 @@ function VetDashboard({ isDark, onThemeToggle }) {
       console.log("Record updated:", updated)
       await loadRecords()
       setSelectedRecord(null)
+      setPendingAction(null)
       setRemarks("")
-      setSuggestionText("")
       setMessage(action === "approved" ? "✓ Record approved successfully" : "✓ Record declined successfully")
       setTimeout(() => setMessage(""), 3000)
     } catch (err) {
@@ -477,8 +480,8 @@ function VetDashboard({ isDark, onThemeToggle }) {
                           </div>
                           <div className="space-y-2">
                             <div className="flex gap-2">
-                              <button onClick={() => updateRecordStatus(r.record_id, "approved", "")} className="flex-1 text-[11px] rounded px-2 py-2 bg-emerald-600 text-white hover:bg-emerald-700 transition font-semibold" title="Click to approve">✓ Approve</button>
-                              <button onClick={() => updateRecordStatus(r.record_id, "rejected", "")} className="flex-1 text-[11px] rounded px-2 py-2 bg-rose-600 text-white hover:bg-rose-700 transition font-semibold" title="Click to decline">✗ Decline</button>
+                              <button onClick={() => { setSelectedRecord(r); setPendingAction("approved"); setRemarks("") }} className="flex-1 text-[11px] rounded px-2 py-2 bg-emerald-600 text-white hover:bg-emerald-700 transition font-semibold" title="Click to approve">✓ Approve</button>
+                              <button onClick={() => { setSelectedRecord(r); setPendingAction("rejected"); setRemarks("") }} className="flex-1 text-[11px] rounded px-2 py-2 bg-rose-600 text-white hover:bg-rose-700 transition font-semibold" title="Click to decline">✗ Decline</button>
                             </div>
                             <button onClick={() => setAnimalHistory(r.animal_id)} className="w-full text-[11px] rounded px-2 py-1 bg-cyan-600/40 text-cyan-200 hover:bg-cyan-600/60 transition border border-cyan-500/50">📋 View History</button>
                           </div>
@@ -509,6 +512,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
                             <div><span className="text-slate-400">🏢 Farm:</span> {r.farm_id}</div>
                             <div><span className="text-slate-400">💊 Drug:</span> {r.drug_name}</div>
                             <div><span className="text-slate-400">📅 Date:</span> {r.administration_date}</div>
+                            {r.vet_notes && <div className="text-slate-400">💬 Note: {r.vet_notes}</div>}
                           </div>
                         </div>
                       ))}
@@ -535,6 +539,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
                             <div><span className="text-slate-400">🏢 Farm:</span> {r.farm_id}</div>
                             <div><span className="text-slate-400">💊 Drug:</span> {r.drug_name}</div>
                             <div><span className="text-slate-400">📅 Date:</span> {r.administration_date}</div>
+                            {r.vet_notes && <div className="text-slate-400">💬 Note: {r.vet_notes}</div>}
                           </div>
                         </div>
                       ))}
@@ -712,13 +717,12 @@ function VetDashboard({ isDark, onThemeToggle }) {
               ))}
             </div>
             <div className="space-y-2 mb-3">
-              <label className="text-xs text-slate-400">Vet Remarks</label>
-              <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Add professional remarks..." className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-2 text-xs text-white" rows="3" />
+              <label className="text-xs text-slate-400">Enter notes (optional)</label>
+              <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Enter notes (optional)" className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-2 text-xs text-white" rows="4" />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { updateRecordStatus(selectedRecord.record_id, "approved", suggestionText); setSelectedRecord(null); setSuggestionText("") }} className="rounded bg-emerald-600 px-2 py-2 text-xs font-semibold text-white hover:bg-emerald-700">✓ Approve</button>
-              <button onClick={() => { updateRecordStatus(selectedRecord.record_id, "rejected", suggestionText); setSelectedRecord(null); setSuggestionText("") }} className="rounded bg-rose-600 px-2 py-2 text-xs font-semibold text-white hover:bg-rose-700">✗ Decline</button>
-              <input value={suggestionText} onChange={(e) => setSuggestionText(e.target.value)} placeholder="Notes" className="flex-1 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs" />
+              <button onClick={() => { updateRecordStatus(selectedRecord.record_id, "approved"); }} className="rounded bg-emerald-600 px-2 py-2 text-xs font-semibold text-white hover:bg-emerald-700">✓ Approve</button>
+              <button onClick={() => { updateRecordStatus(selectedRecord.record_id, "rejected"); }} className="rounded bg-rose-600 px-2 py-2 text-xs font-semibold text-white hover:bg-rose-700">✗ Decline</button>
             </div>
           </div>
         </div>

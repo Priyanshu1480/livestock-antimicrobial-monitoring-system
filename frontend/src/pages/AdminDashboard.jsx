@@ -7,6 +7,11 @@ import Loading from "../components/Loading"
 import Button from "../components/Button"
 import jsPDF from "jspdf"
 
+const RAW_API_URL = import.meta.env.VITE_API_URL || ""
+const API_URL = RAW_API_URL
+  ? RAW_API_URL.replace(/\/+$/, "").replace(/\/api$/i, "")
+  : "http://localhost:5000"
+
 const sections = ["Overview", "Analytics", "Alerts", "Consumer Safety", "Reports"]
 
 function isViolation(record) {
@@ -107,13 +112,42 @@ function getProductAvailability(record) {
 function normalizeStatus(record) {
   const status = (record.status || record.compliance_status || record.mrl_status || "").toString().toLowerCase()
   if (["safe", "completed", "compliant", "approved"].includes(status)) return "safe"
-  if (["not safe", "unsafe", "exceeds mrl", "violation", "rejected", "pending"].includes(status)) return "unsafe"
+  if (["not safe", "unsafe", "exceeds mrl", "violation", "rejected"].includes(status)) return "unsafe"
   return "unknown"
 }
 
+function getRecordState(record) {
+  const raw = (record.status || record.vet_status || record.compliance_status || record.mrl_status || "").toString().trim().toLowerCase()
+  if (raw === "approved" || raw === "safe" || raw === "compliant" || raw === "completed") return "Approved"
+  if (raw === "rejected" || raw === "not safe" || raw === "unsafe" || raw === "violation" || raw === "exceeds mrl") return "Rejected"
+  if (raw === "pending" || raw === "not reviewed" || raw === "") return "Pending"
+  return "Pending"
+}
+
 function isPendingRecord(record) {
-  const status = (record.status || record.compliance_status || "").toString().toLowerCase()
-  return status === "pending"
+  return getRecordState(record) === "Pending"
+}
+
+function isApprovedRecord(record) {
+  return getRecordState(record) === "Approved"
+}
+
+function isRejectedRecord(record) {
+  return getRecordState(record) === "Rejected"
+}
+
+function isSafeRecord(record) {
+  if (isPendingRecord(record)) return false
+  if (isRejectedRecord(record)) return false
+  if (isApprovedRecord(record)) return true
+  const raw = (record.status || record.vet_status || record.compliance_status || record.mrl_status || "").toString().toLowerCase()
+  return /(safe|approved|compliant|completed)/i.test(raw)
+}
+
+function isViolationStatus(record) {
+  if (isRejectedRecord(record)) return true
+  const raw = (record.mrl_status || record.compliance_status || record.status || record.vet_status || "").toString().toLowerCase()
+  return /(not safe|unsafe|violation|rejected|exceeds mrl)/i.test(raw)
 }
 
 function AdminDashboard({ isDark, onThemeToggle }) {
@@ -121,11 +155,27 @@ function AdminDashboard({ isDark, onThemeToggle }) {
   const [active, setActive] = useState("Overview")
   const [records, setRecords] = useState([])
   const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState("All")
+  const [filter, setFilter] = useState("all")
+  const [overviewMode, setOverviewMode] = useState("all")
+  const [sortDirection, setSortDirection] = useState("desc")
   const [countryFilter, setCountryFilter] = useState("All")
   const [farmFilter, setFarmFilter] = useState("All")
   const [statusFilter, setStatusFilter] = useState("All")
   const [loading, setLoading] = useState(false)
+
+  const handleOverviewClick = (mode) => {
+    setActive("Overview")
+    setOverviewMode(mode)
+    if (mode === "all") setFilter("all")
+    else if (mode === "safe") setFilter("approved")
+    else if (mode === "unsafe") setFilter("rejected")
+    else if (mode === "pending") setFilter("pending")
+    setSearch("")
+    setCountryFilter("All")
+    setFarmFilter("All")
+    setStatusFilter("All")
+    setSortDirection("asc")
+  }
   const [animalHistory, setAnimalHistory] = useState(null)
 
   const sortByDateDesc = (items) => (items || []).slice().sort((a, b) => {
@@ -137,9 +187,17 @@ function AdminDashboard({ isDark, onThemeToggle }) {
 const loadRecords = async () => {
   setLoading(true)
   try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/records`)
+    const res = await fetch(`${API_URL}/api/records`)
     const data = await res.json()
-    setRecords(sortByDateDesc(data))
+    const sorted = sortByDateDesc(data)
+    setRecords((prev) => {
+      try {
+        if (JSON.stringify(prev) === JSON.stringify(sorted)) return prev
+      } catch (err) {
+        // fallback to updating if stringify fails
+      }
+      return sorted
+    })
   } catch (err) {
     console.error(err)
   } finally {
@@ -148,51 +206,23 @@ const loadRecords = async () => {
 }
 
   useEffect(() => {
-    setLoading(true)
-    fetch(`${import.meta.env.VITE_API_URL}/api/records`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then(data => {
-        setRecords(Array.isArray(data) ? data : [])
-      })
-      .catch(err => {
-        console.error("Error loading records:", err)
-        setRecords([])
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+    loadRecords()
   }, [])
 
   const summary = useMemo(() => {
     try {
       if (!records || !Array.isArray(records) || records.length === 0) {
-        return { total: 0, violations: 0, safe: 0, compliant: 0, nonCompliant: 0, pending: 0, byDrug: {}, byCountry: {}, byFarm: {}, byAnimalType: {}, byHealthStatus: {}, byRegion: {}, complianceByCountry: {}, byCountryDetails: {}, safetyByFarm: {}, complianceRate: 0, safetyRate: 0 }
+        return { total: 0, approved: 0, rejected: 0, pending: 0, safe: 0, violations: 0, compliant: 0, nonCompliant: 0, complianceRate: 0, safetyRate: 0, byDrug: {}, byCountry: {}, byFarm: {}, byAnimalType: {}, byHealthStatus: {}, byRegion: {}, complianceByCountry: {}, byCountryDetails: {}, safetyByFarm: {} }
       }
 
       const total = records.length
-      
-      const pending = records.filter(r => isPendingRecord(r)).length
-      
-      // Determine compliance and safety - handle missing fields gracefully
-      const compliant = records.filter(r => {
-        const status = (r.compliance_status || "").toLowerCase()
-        return status === "compliant"
-      }).length
-      
-      const nonCompliant = records.filter(r => {
-        const status = (r.compliance_status || "").toLowerCase()
-        return status && status !== "compliant"
-      }).length
-      
-      const safe = records.filter(r => {
-        const mrlStatus = (r.mrl_status || "").toLowerCase()
-        return mrlStatus === "safe"
-      }).length
-      
-      const unsafe = total - safe
+      const approved = records.filter(isApprovedRecord).length
+      const rejected = records.filter(isRejectedRecord).length
+      const pending = records.filter(isPendingRecord).length
+      const safe = records.filter(isSafeRecord).length
+      const compliant = records.filter(r => (r.compliance_status || "").toString().toLowerCase() === "compliant").length
+      const nonCompliant = rejected
+      const unsafe = rejected
       const complianceRate = total > 0 ? Math.round((compliant / total) * 100) : 0
       const safetyRate = total > 0 ? Math.round((safe / total) * 100) : 0
       
@@ -208,10 +238,10 @@ const loadRecords = async () => {
 
         if (!byCountryDetails[country]) byCountryDetails[country] = { count: 0, safe: 0, unsafe: 0, pending: 0 }
         byCountryDetails[country].count++
-        const recordStatus = normalizeStatus(r)
-        if (recordStatus === "safe") byCountryDetails[country].safe++
-        else if (recordStatus === "unsafe") byCountryDetails[country].unsafe++
-        if (isPendingRecord(r)) byCountryDetails[country].pending++
+        const recordState = getRecordState(r)
+        if (recordState === "Approved") byCountryDetails[country].safe++
+        else if (recordState === "Rejected") byCountryDetails[country].unsafe++
+        else if (recordState === "Pending") byCountryDetails[country].pending++
       })
       const byCountry = Object.entries(complianceByCountry).reduce((acc, [c, v]) => { acc[c] = v.total; return acc }, {})
       
@@ -283,28 +313,49 @@ const loadRecords = async () => {
   const filteredRecords = useMemo(() => {
     const term = search.toLowerCase()
     return records.filter((r) => {
-      // Search filter
       const inTerm = [r.record_id, r.animal_id, r.farm_id, r.drug_name, r.animal_type, r.country].join(" ").toLowerCase().includes(term)
       if (!inTerm) return false
-      
-      // Status filter by MRL compliance
+
       if (statusFilter !== "All") {
-        if (statusFilter === "Safe" && r.mrl_status !== "Safe" && r.mrl_status !== "safe") return false
-        if (statusFilter === "Not Safe" && r.mrl_status === "Safe" || r.mrl_status === "safe") return false
+        if (statusFilter === "Safe" && !isSafeRecord(r)) return false
+        if (statusFilter === "Not Safe" && isSafeRecord(r)) return false
       }
-      
-      // Country filter
+
       if (countryFilter !== "All" && r.country !== countryFilter) return false
-      
-      // Farm filter
       if (farmFilter !== "All" && r.farm_id !== farmFilter) return false
-      
-      // Legacy filter
-      if (filter === "Violations") return r.mrl_status !== "Safe" && r.mrl_status !== "safe"
-      if (filter === "Safe") return r.mrl_status === "Safe" || r.mrl_status === "safe"
+
+      const recordState = getRecordState(r)
+      if (filter === "approved") return recordState === "Approved"
+      if (filter === "rejected") return recordState === "Rejected"
+      if (filter === "pending") return recordState === "Pending"
       return true
     })
   }, [records, search, filter, countryFilter, farmFilter, statusFilter])
+
+  const displayedRecords = useMemo(() => {
+    const sorted = [...filteredRecords].sort((a, b) => {
+      const da = new Date(a.administration_date || a.date || 0)
+      const db = new Date(b.administration_date || b.date || 0)
+      return sortDirection === "asc" ? da - db : db - da
+    })
+    return sorted
+  }, [filteredRecords, sortDirection])
+
+  const overviewDisplayedRecords = useMemo(() => {
+    const filtered = records.filter((r) => {
+      if (overviewMode === "safe") return isSafeRecord(r)
+      if (overviewMode === "unsafe") return isRejectedRecord(r)
+      if (overviewMode === "pending") return isPendingRecord(r)
+      return true
+    })
+    return filtered.slice().sort((a, b) => {
+      const da = new Date(a.administration_date || a.date || 0)
+      const db = new Date(b.administration_date || b.date || 0)
+      return sortDirection === "asc" ? da - db : db - da
+    })
+  }, [records, overviewMode, sortDirection])
+
+  const filterLabel = filter === "all" ? "All Records" : filter === "approved" ? "Approved Records" : filter === "rejected" ? "Rejected Records" : filter === "pending" ? "Pending Review" : `${filter} Records`
 
   // Alert type detection
   const getAlertType = (record) => {
@@ -564,28 +615,31 @@ const loadRecords = async () => {
           <div className="space-y-3">
             {/* ENHANCED SUMMARY CARDS */}
             <div className="grid gap-3 lg:grid-cols-4">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg hover:shadow-xl transition">
+              <button type="button" onClick={() => handleOverviewClick("all")} className={`w-full text-left rounded-2xl p-3 shadow-lg transition cursor-pointer ${overviewMode === "all" ? "bg-slate-700 border-cyan-400" : "bg-slate-800 border border-slate-700 hover:shadow-xl"}`}>
                 <div className="text-xs uppercase text-cyan-400 font-semibold">Total Records</div>
-                <div className="mt-2 text-3xl font-bold text-cyan-300">{summary.total + summary.pending}</div>
+                <div className="mt-2 text-3xl font-bold text-cyan-300">{summary.total}</div>
                 <div className="text-xs text-slate-400 mt-1">Submitted & reviewed</div>
-              </div>
-              <div className="rounded-2xl bg-emerald-900/25 border border-emerald-500/40 p-3 shadow-lg hover:shadow-xl transition">
+              </button>
+              <button type="button" onClick={() => handleOverviewClick("safe")} className={`w-full text-left rounded-2xl p-3 shadow-lg transition cursor-pointer ${overviewMode === "safe" ? "bg-emerald-700 border-emerald-300" : "bg-emerald-900/25 border border-emerald-500/40 hover:shadow-xl"}`}>
                 <div className="text-xs uppercase text-emerald-400 font-semibold">Safe Records</div>
                 <div className="mt-2 text-3xl font-bold text-emerald-300">{summary.safe}</div>
                 <div className="text-xs text-slate-400 mt-1">Compliant & approved</div>
-              </div>
-              <div className="rounded-2xl bg-rose-900/25 border border-rose-500/40 p-3 shadow-lg hover:shadow-xl transition">
+              </button>
+              <button type="button" onClick={() => handleOverviewClick("unsafe")} className={`w-full text-left rounded-2xl p-3 shadow-lg transition cursor-pointer ${overviewMode === "unsafe" ? "bg-rose-700 border-rose-300" : "bg-rose-900/25 border border-rose-500/40 hover:shadow-xl"}`}>
                 <div className="text-xs uppercase text-rose-400 font-semibold">Not Safe</div>
                 <div className="mt-2 text-3xl font-bold text-rose-300">{summary.violations}</div>
                 <div className="text-xs text-slate-400 mt-1">Violations detected</div>
-              </div>
-              <div className="rounded-2xl bg-amber-900/25 border border-amber-500/40 p-3 shadow-lg hover:shadow-xl transition">
+              </button>
+              <button type="button" onClick={() => handleOverviewClick("pending")} className={`w-full text-left rounded-2xl p-3 shadow-lg transition cursor-pointer ${overviewMode === "pending" ? "bg-amber-700 border-amber-300" : "bg-amber-900/25 border border-amber-500/40 hover:shadow-xl"}`}>
                 <div className="text-xs uppercase text-amber-400 font-semibold">Pending Review</div>
                 <div className="mt-2 text-3xl font-bold text-amber-300">{summary.pending}</div>
                 <div className="text-xs text-slate-400 mt-1">Awaiting vet decision</div>
-              </div>
+              </button>
             </div>
 
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-3 text-xs text-slate-300">
+              Viewing: {overviewMode === "all" ? "All Records" : overviewMode === "safe" ? "Safe Records" : overviewMode === "unsafe" ? "Not Safe Records" : "Pending Review"}
+            </div>
             {/* COUNTRY-WISE ANALYSIS */}
             <div className="grid gap-3 lg:grid-cols-2">
               <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
@@ -711,7 +765,7 @@ const loadRecords = async () => {
             <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
               <div className="mb-3">
                 <h3 className="text-sm font-semibold text-cyan-300">Complete Records Database</h3>
-                <p className="text-xs text-slate-400">Showing {filteredRecords.length} of {records.length} total records</p>
+                <p className="text-xs text-slate-400">Showing {overviewDisplayedRecords.length} of {records.length} total records</p>
               </div>
               <div className="overflow-y-auto max-h-96">
                 <table className="w-full text-left text-xs border-collapse table-fixed">
@@ -728,7 +782,7 @@ const loadRecords = async () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700">
-                    {filteredRecords.length > 0 ? filteredRecords.slice(0, 20).map((r) => (
+                    {overviewDisplayedRecords.length > 0 ? overviewDisplayedRecords.map((r) => (
                       <tr key={r.record_id} className={`hover:bg-slate-700/50 ${(r.mrl_status !== "Safe" && r.mrl_status !== "safe") ? "bg-rose-900/10" : "bg-emerald-900/5"} border-b border-slate-700`}>
                         <td className="px-1.5 py-2 text-cyan-300 font-semibold text-[10px] truncate">{r.record_id}</td>
                         <td className="px-1.5 py-2 text-slate-300 text-[10px] truncate">{r.country || "—"}</td>
@@ -755,9 +809,9 @@ const loadRecords = async () => {
                   </tbody>
                 </table>
               </div>
-              {filteredRecords.length > 20 && (
+              {overviewDisplayedRecords.length > 0 && (
                 <div className="mt-2 text-center text-xs text-slate-400">
-                  Showing 20 of {filteredRecords.length} records • Use filters to narrow down
+                  Showing all {overviewDisplayedRecords.length} records
                 </div>
               )}
             </div>
@@ -1358,6 +1412,7 @@ const loadRecords = async () => {
             {/* DETAILED RECORDS TABLE */}
             <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
               <h3 className="text-sm font-semibold text-cyan-300 mb-3">Detailed Records</h3>
+              <div className="text-xs text-slate-400 mb-2">Showing: {filterLabel} • {displayedRecords.length} records</div>
               <div className="overflow-y-auto max-h-96 rounded-lg border border-slate-700">
                 <table className="w-full text-left text-xs">
                   <thead className="sticky top-0 bg-slate-900 border-b border-slate-700">
@@ -1369,11 +1424,12 @@ const loadRecords = async () => {
                       <th className="px-3 py-2 text-slate-300 font-semibold whitespace-nowrap">Drug</th>
                       <th className="px-3 py-2 text-slate-300 font-semibold whitespace-nowrap">Date</th>
                       <th className="px-3 py-2 text-slate-300 font-semibold whitespace-nowrap">Status</th>
+                      <th className="px-3 py-2 text-slate-300 font-semibold whitespace-nowrap">Vet Notes</th>
                       <th className="px-3 py-2 text-slate-300 font-semibold whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700">
-                    {filteredRecords.length > 0 ? filteredRecords.slice(0, 20).map((r) => (
+                    {filteredRecords.length > 0 ? displayedRecords.map((r) => (
                       <tr key={r.record_id} className={`hover:bg-slate-700/30 transition ${normalizeStatus(r) === "unsafe" ? "bg-rose-900/10" : "bg-emerald-900/5"}`}>
                         <td className="px-3 py-2 text-cyan-300 font-semibold whitespace-nowrap">{r.record_id}</td>
                         <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{r.country || "—"}</td>
@@ -1383,8 +1439,11 @@ const loadRecords = async () => {
                         <td className="px-3 py-2 text-slate-400 whitespace-nowrap text-[10px]">{r.administration_date || r.date || "—"}</td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${normalizeStatus(r) === "safe" ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
-                            {normalizeStatus(r) === "safe" ? "SAFE" : "NOT SAFE"}
+                            {r.status ? r.status : normalizeStatus(r) === "safe" ? "SAFE" : "NOT SAFE"}
                           </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-300 text-[11px] max-w-[180px] truncate">
+                          {r.vet_notes || "—"}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <button
@@ -1397,15 +1456,15 @@ const loadRecords = async () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="8" className="px-3 py-4 text-center text-slate-400 text-xs">No records match current filters</td>
+                        <td colSpan="9" className="px-3 py-4 text-center text-slate-400 text-xs">No records match current filters</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              {filteredRecords.length > 20 && (
+              {displayedRecords.length > 0 && (
                 <div className="mt-2 text-center text-xs text-slate-400">
-                  Showing 20 of {filteredRecords.length} records
+                  Showing {displayedRecords.length} records
                 </div>
               )}
             </div>

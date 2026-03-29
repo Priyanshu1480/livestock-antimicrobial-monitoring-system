@@ -24,13 +24,27 @@ const DRUG_DATABASE = {
   "Probiotic": { withdrawal_days: 0, MRL_limit: 500, dosage_mg_kg: 2 }
 };
 
-// Problem-to-drug mapping with priority
+// Problem-to-drug mapping with dosage per kg
 const PROBLEM_DRUG_MAP = {
-  "Lameness": ["Oxytetracycline", "Penicillin"],
-  "Mastitis": ["Amoxicillin", "Penicillin"],
-  "Diarrhea": ["Oxytetracycline", "Streptomycin"],
-  "Pneumonia": ["Doxycycline", "Oxytetracycline"],
-  "Skin Disease": ["Oxytetracycline", "Enrofloxacin"]
+  "Fever": { drug: "Paracetamol", dose_per_kg: 10 },
+  "Infection": { drug: "Oxytetracycline", dose_per_kg: 5 },
+  "Weakness": { drug: "Vitamin B Complex", dose_per_kg: 2 },
+  "Injury": { drug: "Meloxicam", dose_per_kg: 0.5 },
+  "Respiratory Issue": { drug: "Enrofloxacin", dose_per_kg: 5 },
+  "Digestive Problem": { drug: "Probiotics", dose_per_kg: 3 },
+  "Skin Disease": { drug: "Ivermectin", dose_per_kg: 0.2 },
+  "Parasite Infection": { drug: "Albendazole", dose_per_kg: 7.5 },
+  "Lameness": { drug: "Meloxicam", dose_per_kg: 0.5 },
+  "Mastitis": { drug: "Penicillin", dose_per_kg: 10 },
+  "Diarrhea": { drug: "Electrolytes + Probiotics", dose_per_kg: 5 },
+  "Pneumonia": { drug: "Enrofloxacin", dose_per_kg: 5 },
+  "Cough": { drug: "Bromhexine", dose_per_kg: 0.5 },
+  "Wound": { drug: "Topical Antibiotic", dose_per_kg: 2 },
+  "Oral/Dental Issue": { drug: "Amoxicillin", dose_per_kg: 10 },
+  "Eye Infection": { drug: "Oxytetracycline", dose_per_kg: 5 },
+  "Reproductive Issue": { drug: "Hormonal Therapy", dose_per_kg: 1 },
+  "Metabolic Disorder": { drug: "Mineral Supplements", dose_per_kg: 2 },
+  "Clostridial Disease": { drug: "Penicillin", dose_per_kg: 10 }
 };
 
 // Symptom-to-drug mapping
@@ -50,57 +64,38 @@ const SYMPTOM_DRUG_MAP = {
 // GET - Dosage Recommendation Endpoint
 app.get("/api/dosage-recommendation", (req, res) => {
   try {
-    const { symptom, problem, weight, age } = req.query;
-    const weight_kg = parseFloat(weight) || 50;
-    const age_months = parseFloat(age) || 12;
+    const { problem, weight } = req.query;
+    const selected = PROBLEM_DRUG_MAP[problem];
 
-    // Select drug based on symptom or problem
-    let suggestedDrug = null;
-    
-    if (symptom && SYMPTOM_DRUG_MAP[symptom]) {
-      suggestedDrug = SYMPTOM_DRUG_MAP[symptom][0];
-    } else if (problem && PROBLEM_DRUG_MAP[problem]) {
-      suggestedDrug = PROBLEM_DRUG_MAP[problem][0];
-    } else {
-      // Fallback
-      suggestedDrug = "Oxytetracycline";
+    if (!selected) {
+      return res.json({
+        success: false,
+        drug: "Consult Veterinarian",
+        recommended_dose: "N/A"
+      });
     }
 
-    // Get drug information
-    const drugInfo = DRUG_DATABASE[suggestedDrug] || { dosage_mg_kg: 20, withdrawal_days: 5, MRL_limit: 100 };
-    
-    // Calculate dosage: base dosage adjusted by age(younger animals may need slight reduction)
-    let ageMultiplier = 1.0;
-    if (age_months < 6) ageMultiplier = 0.8; // Young animals
-    else if (age_months > 36) ageMultiplier = 0.9; // Older animals
-
-    const baseDosage = drugInfo.dosage_mg_kg * weight_kg * ageMultiplier;
-    const recommendedDose = Math.round(baseDosage);
-    
-    // Calculate safe range (±20%)
-    const minDose = Math.round(recommendedDose * 0.8);
-    const maxDose = Math.round(recommendedDose * 1.2);
-    
-    // Calculate withdrawal period
-    const withdrawalEndDate = new Date();
-    withdrawalEndDate.setDate(withdrawalEndDate.getDate() + drugInfo.withdrawal_days);
+    const weightKg = parseFloat(weight) || 0;
+    const dose = (selected.dose_per_kg * weightKg).toFixed(2);
+    const drugInfo = DRUG_DATABASE[selected.drug] || { withdrawal_days: 0, MRL_limit: 0 };
 
     return res.json({
       success: true,
-      drug: suggestedDrug,
-      recommendedDose: recommendedDose,
+      drug: selected.drug,
+      recommended_dose: `${dose} mg`,
+      recommendedDose: Number(dose),
       dosageUnit: "mg",
       dosageRange: {
-        min: minDose,
-        max: maxDose
+        min: Math.round(Number(dose) * 0.8),
+        max: Math.round(Number(dose) * 1.2)
       },
       drugInfo: {
         withdrawal_days: drugInfo.withdrawal_days,
         MRL_limit: drugInfo.MRL_limit,
-        withdrawalEndDate: withdrawalEndDate.toISOString().split("T")[0]
+        withdrawalEndDate: drugInfo.withdrawal_days ? new Date(Date.now() + drugInfo.withdrawal_days * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : null
       },
       compliance: {
-        message: "Ensure animal rest period after treatment",
+        message: "Consult veterinarian for exact dosage and administration schedule",
         withdrawalPeriod: `${drugInfo.withdrawal_days} days`,
         residueLimit: `${drugInfo.MRL_limit} µg/kg`
       }
@@ -123,7 +118,13 @@ app.get("/api/records", (req, res) => {
 // POST
 app.post("/api/records", (req, res) => {
   try {
-    const newRecord = req.body;
+    const newRecord = {
+      ...req.body,
+      extra_notes: req.body.extra_notes || "",
+      vet_notes: req.body.vet_notes || "",
+      status: req.body.status || "Pending",
+      vet_status: req.body.vet_status || "not reviewed"
+    };
 
     let data = [];
 
@@ -147,11 +148,19 @@ app.post("/api/records", (req, res) => {
 app.put("/api/records/:id", (req, res) => {
   try {
     const recordId = req.params.id;
-    const updates = req.body;
+    const { status, vet_notes } = req.body;
     const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     const index = data.findIndex((r) => r.record_id === recordId);
     if (index === -1) return res.status(404).json({ message: "Record not found" });
-    data[index] = { ...data[index], ...updates };
+
+    data[index] = {
+      ...data[index],
+      ...(status !== undefined ? { status } : {}),
+      ...(vet_notes !== undefined ? { vet_notes } : {}),
+      ...(status === "Approved" ? { vet_status: "approved" } : {}),
+      ...(status === "Rejected" ? { vet_status: "rejected" } : {})
+    };
+
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     res.json(data[index]);
   } catch (err) {

@@ -5,6 +5,10 @@ import Sidebar from "../components/Sidebar"
 import Loading from "../components/Loading"
 import Button from "../components/Button"
 
+const RAW_API_URL = import.meta.env.VITE_API_URL || ""
+const API_URL = RAW_API_URL
+  ? RAW_API_URL.replace(/\/+$/, "").replace(/\/api$/i, "")
+  : "http://localhost:5000"
 const sidebarItems = ["Add New Treatment", "My Records", "Dose Guide"]
 const STEP_LABELS = ["Select Location", "Enter Animal Details", "Identify Problem", "Review & Submit"]
 
@@ -183,6 +187,7 @@ const initialModel = {
   symptom: "", 
   problem: "", 
   date: new Date().toISOString().split("T")[0],
+  extra_notes: ""
 }
 
 function FarmerDashboard({ isDark, onThemeToggle }) {
@@ -207,7 +212,18 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
   const [customAnimalType, setCustomAnimalType] = useState("")
   const [formErrors, setFormErrors] = useState({})
 
-  // Get final values for submission
+  const animalTypeName = animalType === "Other" ? customAnimalType : animalType
+  const animalIdPrefix = animalTypeName ? animalTypeName.trim().slice(0, 3).toUpperCase() : ""
+
+  useEffect(() => {
+    if (!animalIdPrefix) return
+    setAnimalId((prev) => {
+      const previous = String(prev || "")
+      const suffix = previous.startsWith(animalIdPrefix) ? previous.slice(animalIdPrefix.length) : previous
+      return animalIdPrefix + suffix
+    })
+  }, [animalIdPrefix])
+
   const finalCountry = country === "Other" ? customCountry : country
   const finalFarm = country === "Other" ? customFarm : (farmId === "Other" ? customFarm : farmId)
   const finalAnimalId = animalId
@@ -236,11 +252,24 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
     })
   }
 
- useEffect(() => {
-  fetch(`${import.meta.env.VITE_API_URL}/api/records`)
-    .then(res => res.json())
-    .then(data => setRecords(data.slice().reverse()))
-    .catch(err => console.log(err));
+ const fetchRecords = async () => {
+  try {
+    const res = await fetch(`${API_URL}/api/records`)
+    const data = await res.json()
+    setRecords(Array.isArray(data) ? data.slice().reverse() : [])
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+useEffect(() => {
+  fetchRecords()
+  const interval = setInterval(fetchRecords, 15000)
+  window.addEventListener("focus", fetchRecords)
+  return () => {
+    clearInterval(interval)
+    window.removeEventListener("focus", fetchRecords)
+  }
 }, []);
 
   // Fetch dosage recommendation when symptom/weight/age changes
@@ -254,7 +283,7 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
         age: model.age || "12"
       });
       
-      fetch(`${import.meta.env.VITE_API_URL}/api/dosage-recommendation?${params}`)
+      fetch(`${API_URL}/api/dosage-recommendation?${params}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -304,12 +333,14 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
       weight_kg: model.weight,
       symptom: model.symptom,
       problem: model.problem,
+      extra_notes: model.extra_notes || "",
       drug_name: suggestedDrug,
       recommended_dose: recommendedDose,
       compliance_status: "Pending",
       administration_date: model.date || new Date().toISOString().slice(0, 10),
-      status: "pending",
-      vet_status: "not reviewed"
+      status: "Pending",
+      vet_status: "not reviewed",
+      vet_notes: ""
     }
 
     setLoading(true)
@@ -590,7 +621,20 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
                         type="text" 
                         placeholder="Enter unique Animal ID (e.g., COW1023, BUFFALO-A45)"
                         value={animalId}
-                        onChange={(e) => setAnimalId(e.target.value)}
+                        onChange={(e) => {
+                          let next = String(e.target.value || "")
+                          if (animalIdPrefix) {
+                            if (!next.toUpperCase().startsWith(animalIdPrefix)) {
+                              next = next.replace(new RegExp(`^${animalIdPrefix}`, "i"), "")
+                            } else {
+                              next = next.slice(animalIdPrefix.length)
+                            }
+                            next = next.replace(/[^A-Za-z0-9-]/g, "")
+                            setAnimalId(animalIdPrefix + next.toUpperCase())
+                          } else {
+                            setAnimalId(next.toUpperCase())
+                          }
+                        }}
                         className="rounded-lg border border-slate-600 bg-slate-900 p-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
                       />
                       <p className="text-xs text-slate-400">Required: Use farm ID + animal number format for easy tracking</p>
@@ -663,23 +707,35 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
 
                     {/* Symptoms (Dynamic) */}
                     {model.problem && (
-                      <div className="grid gap-3">
-                        <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                          💊 Symptoms (for {model.problem})
-                        </label>
-                        <select 
-                          value={model.symptom} 
-                          onChange={(e) => setModel(p => ({ ...p, symptom: e.target.value }))}
-                          className="rounded-lg border border-slate-600 bg-slate-900 p-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
-                        >
-                          <option value="">Select Symptom</option>
-                          {(PROBLEM_SYMPTOMS[model.problem] || []).map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-slate-400">Symptoms are dynamically tailored to the selected problem</p>
-                        {formErrors.symptom && <div className="text-xs text-rose-400">{formErrors.symptom}</div>}
-                      </div>
+                      <>
+                        <div className="grid gap-3">
+                          <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            💊 Symptoms (for {model.problem})
+                          </label>
+                          <select 
+                            value={model.symptom} 
+                            onChange={(e) => setModel(p => ({ ...p, symptom: e.target.value }))}
+                            className="rounded-lg border border-slate-600 bg-slate-900 p-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                          >
+                            <option value="">Select Symptom</option>
+                            {(PROBLEM_SYMPTOMS[model.problem] || []).map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-slate-400">Symptoms are dynamically tailored to the selected problem</p>
+                          {formErrors.symptom && <div className="text-xs text-rose-400">{formErrors.symptom}</div>}
+                        </div>
+                        <div className="grid gap-3">
+                          <label className="text-sm font-semibold text-slate-200">📝 Additional observations (optional)</label>
+                          <textarea
+                            value={model.extra_notes}
+                            onChange={(e) => setModel(p => ({ ...p, extra_notes: e.target.value }))}
+                            placeholder="Additional observations (optional)"
+                            rows={4}
+                            className="rounded-lg border border-slate-600 bg-slate-900 p-2.5 text-sm text-white focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                      </>
                     )}
                   </div>
                 )}
@@ -726,6 +782,12 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
                           <div className="font-semibold text-white">{model.problem}</div>
                           <div className="text-slate-400">Symptom:</div>
                           <div className="font-semibold text-white">{model.symptom}</div>
+                          {model.extra_notes && (
+                            <>
+                              <div className="text-slate-400">Extra Notes:</div>
+                              <div className="font-semibold text-white truncate">{model.extra_notes}</div>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -839,7 +901,7 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
                         <div className="text-slate-400 mt-1">{r.country || "—"} → {r.farm_id || "—"} → {r.animal_id || "—"}</div>
                       </div>
                       <div className="text-right">
-                        <div className={r.compliance_status === "Violation" ? "text-rose-400" : "text-emerald-400"}>{r.compliance_status || "Pending"}</div>
+                        <div className={r.status === "Rejected" ? "text-rose-400" : r.status === "Approved" ? "text-emerald-400" : "text-slate-400"}>{r.status || r.compliance_status || "Pending"}</div>
                         <div className="text-slate-400">{r.administration_date || "—"}</div>
                       </div>
                     </div>
@@ -849,6 +911,8 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
                       <div><span className="text-slate-400">Symptom:</span> <span className="text-white">{r.symptom || "—"}</span></div>
                       <div><span className="text-slate-400">Dose:</span> <span className="text-white">{r.recommended_dose || "—"}</span></div>
                     </div>
+                    {r.extra_notes && <div className="mt-2 text-xs text-slate-400">📝 Extra notes: {r.extra_notes}</div>}
+                    {r.vet_notes && <div className="mt-2 text-xs text-emerald-300">💬 Vet note: {r.vet_notes}</div>}
                   </div>
                 ))}
               </div>
