@@ -1,25 +1,49 @@
-﻿const sectionIcons = {
-  Dashboard: "📊",
-  Records: "🧾",
-  Violations: "⚠️",
-  Recommendations: "💡",
-  Input: "✍️",
-  "My Records": "📋",
-  Alerts: "🚨",
-  Overview: "🧭",
-  Counts: "🔢",
-  Chart: "📈",
-  "Trend Analytics": "📊"
+const sectionIcons = {
+  Dashboard: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>,
+  Overview: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2 2"/><path d="m7.8 16.2 2-2"/><circle cx="12" cy="12" r="2"/><path d="m16.2 16.2-2-2"/><path d="m7.8 7.8 2-2"/></svg>,
+  Analytics: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
+  Alerts: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>,
+  "Consumer Safety": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>,
+  Reports: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  Input: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  "My Records": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  "Dose Guide": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
 }
 
 function Sidebar({ items, active, onSelect }) {
   return (
-    <aside className="w-full md:w-64 bg-slate-900/80 border border-slate-700 rounded-3xl p-3 space-y-2 shadow-xl backdrop-blur-lg">
-      {items.map((item) => (
-        <button key={item} onClick={() => onSelect(item)} className={`w-full text-left rounded-xl px-3 py-2 text-sm font-medium transition ${active===item ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-slate-900 shadow" : "bg-slate-800 text-slate-200 hover:bg-slate-700"}`}>
-          <span className="mr-2">{sectionIcons[item] || "•"}</span> {item}
-        </button>
-      ))}
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900/40 border-r border-slate-800/50 backdrop-blur-2xl z-40 hidden md:flex flex-col p-6 pt-24 transition-all duration-300">
+      <div className="flex flex-col space-y-2">
+        {items.map((item) => (
+          <button 
+            key={item} 
+            onClick={() => onSelect(item)} 
+            className={`flex items-center gap-3 w-full text-left rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 group ${
+              active === item 
+                ? "bg-slate-800/50 text-cyan-400 border border-cyan-400/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]" 
+                : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/30"
+            }`}
+          >
+            <span className={`transition-transform duration-300 group-hover:scale-110 ${active === item ? "text-cyan-400" : "text-slate-500"}`}>
+              {sectionIcons[item] || <span className="w-1 h-1 rounded-full bg-slate-500" />}
+            </span>
+            {item}
+            {active === item && (
+              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+            )}
+          </button>
+        ))}
+      </div>
+      
+      <div className="mt-auto pt-6 border-t border-slate-800/50">
+        <div className="bg-slate-800/40 rounded-2xl p-4 border border-slate-700/30">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">System Health</p>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+            <span className="text-xs text-emerald-400 font-medium font-mono">Live Sync: Active</span>
+          </div>
+        </div>
+      </div>
     </aside>
   )
 }

@@ -90,13 +90,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-02-17"
+    "date": "2026-02-17",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "4",
@@ -123,13 +125,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-02-27"
+    "date": "2026-02-27",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "5",
@@ -156,13 +160,15 @@
     "owner_id": "49",
     "owner_name": "user_49",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "5ml",
-    "date": "2026-01-18"
+    "date": "2026-01-18",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "6",
@@ -189,13 +195,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-01-25"
+    "date": "2026-01-25",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "7",
@@ -222,13 +230,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "7ml",
-    "date": "2026-02-21"
+    "date": "2026-02-21",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "8",
@@ -255,13 +265,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-02-23"
+    "date": "2026-02-23",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "9",
@@ -288,13 +300,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-02-04"
+    "date": "2026-02-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "10",
@@ -387,13 +401,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-01-12"
+    "date": "2026-01-12",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "13",
@@ -420,13 +436,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-01-21"
+    "date": "2026-01-21",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "14",
@@ -486,13 +504,15 @@
     "owner_id": "7",
     "owner_name": "user_7",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-18"
+    "date": "2026-02-18",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "16",
@@ -519,13 +539,15 @@
     "owner_id": "42",
     "owner_name": "user_42",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "5ml",
-    "date": "2026-02-23"
+    "date": "2026-02-23",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "17",
@@ -684,13 +706,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-01-10"
+    "date": "2026-01-10",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "22",
@@ -717,13 +741,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-02-12"
+    "date": "2026-02-12",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "23",
@@ -783,13 +809,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-01-11"
+    "date": "2026-01-11",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "25",
@@ -882,13 +910,15 @@
     "owner_id": "1",
     "owner_name": "user_1",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-06"
+    "date": "2026-02-06",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "28",
@@ -915,13 +945,16 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Approved",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-03-02"
+    "date": "2026-03-02",
+    "vet_notes": "",
+    "digital_signature": "VET-SIG-ORJPZT-19D4FD8C792",
+    "vet_status": "approved"
   },
   {
     "record_id": "29",
@@ -948,13 +981,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-02-07"
+    "date": "2026-02-07",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "30",
@@ -981,13 +1016,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-07"
+    "date": "2026-01-07",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "31",
@@ -1014,13 +1051,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-02-24"
+    "date": "2026-02-24",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "32",
@@ -1047,13 +1086,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "5ml",
-    "date": "2026-02-20"
+    "date": "2026-02-20",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "33",
@@ -1080,13 +1121,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-01-23"
+    "date": "2026-01-23",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "34",
@@ -1113,13 +1156,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-01-24"
+    "date": "2026-01-24",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "35",
@@ -1146,13 +1191,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-01-22"
+    "date": "2026-01-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "36",
@@ -1245,13 +1292,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-01-28"
+    "date": "2026-01-28",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "39",
@@ -1278,13 +1327,15 @@
     "owner_id": "7",
     "owner_name": "user_7",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-02-11"
+    "date": "2026-02-11",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "40",
@@ -1311,13 +1362,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-19"
+    "date": "2026-02-19",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "41",
@@ -1344,13 +1397,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-22"
+    "date": "2026-02-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "42",
@@ -1377,13 +1432,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-01-21"
+    "date": "2026-01-21",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "43",
@@ -1443,13 +1500,15 @@
     "owner_id": "7",
     "owner_name": "user_7",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-06"
+    "date": "2026-02-06",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "45",
@@ -1476,13 +1535,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-01-22"
+    "date": "2026-01-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "46",
@@ -1542,13 +1603,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-21"
+    "date": "2026-02-21",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "48",
@@ -1575,13 +1638,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-26"
+    "date": "2026-02-26",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "49",
@@ -1608,13 +1673,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-02-05"
+    "date": "2026-02-05",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "50",
@@ -1641,13 +1708,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-01-06"
+    "date": "2026-01-06",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "51",
@@ -1674,13 +1743,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-02-01"
+    "date": "2026-02-01",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "52",
@@ -1707,13 +1778,15 @@
     "owner_id": "42",
     "owner_name": "user_42",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-14"
+    "date": "2026-02-14",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "53",
@@ -1773,13 +1846,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-01-19"
+    "date": "2026-01-19",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "55",
@@ -1806,13 +1881,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-01-20"
+    "date": "2026-01-20",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "56",
@@ -1872,13 +1949,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-01-28"
+    "date": "2026-01-28",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "58",
@@ -1905,13 +1984,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-23"
+    "date": "2026-01-23",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "59",
@@ -1938,13 +2019,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-01-20"
+    "date": "2026-01-20",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "60",
@@ -1971,13 +2054,15 @@
     "owner_id": "7",
     "owner_name": "user_7",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-02-16"
+    "date": "2026-02-16",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "61",
@@ -2004,13 +2089,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "7ml",
-    "date": "2026-02-17"
+    "date": "2026-02-17",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "62",
@@ -2037,13 +2124,15 @@
     "owner_id": "25",
     "owner_name": "user_25",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-01-13"
+    "date": "2026-01-13",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "63",
@@ -2070,13 +2159,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-01-18"
+    "date": "2026-01-18",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "64",
@@ -2136,13 +2227,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "7ml",
-    "date": "2026-01-19"
+    "date": "2026-01-19",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "66",
@@ -2169,13 +2262,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-01-20"
+    "date": "2026-01-20",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "67",
@@ -2235,13 +2330,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "7ml",
-    "date": "2026-02-05"
+    "date": "2026-02-05",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "69",
@@ -2268,13 +2365,15 @@
     "owner_id": "49",
     "owner_name": "user_49",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-10"
+    "date": "2026-02-10",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "70",
@@ -2367,13 +2466,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-22"
+    "date": "2026-01-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "73",
@@ -2433,13 +2534,15 @@
     "owner_id": "1",
     "owner_name": "user_1",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-22"
+    "date": "2026-02-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "75",
@@ -2466,13 +2569,15 @@
     "owner_id": "49",
     "owner_name": "user_49",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-01-05"
+    "date": "2026-01-05",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "76",
@@ -2499,13 +2604,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-01-04"
+    "date": "2026-01-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "77",
@@ -2565,13 +2672,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-01-08"
+    "date": "2026-01-08",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "79",
@@ -2598,13 +2707,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-02-08"
+    "date": "2026-02-08",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "80",
@@ -2631,13 +2742,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-19"
+    "date": "2026-02-19",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "81",
@@ -2664,13 +2777,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-02-28"
+    "date": "2026-02-28",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "82",
@@ -2697,13 +2812,15 @@
     "owner_id": "7",
     "owner_name": "user_7",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-01-28"
+    "date": "2026-01-28",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "83",
@@ -2730,13 +2847,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-01-04"
+    "date": "2026-01-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "84",
@@ -2763,13 +2882,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-03-02"
+    "date": "2026-03-02",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "85",
@@ -2796,13 +2917,15 @@
     "owner_id": "42",
     "owner_name": "user_42",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-01-14"
+    "date": "2026-01-14",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "86",
@@ -2829,13 +2952,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-01-11"
+    "date": "2026-01-11",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "87",
@@ -2862,13 +2987,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-01-05"
+    "date": "2026-01-05",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "88",
@@ -2895,13 +3022,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-01-29"
+    "date": "2026-01-29",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "89",
@@ -2928,13 +3057,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-19"
+    "date": "2026-01-19",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "90",
@@ -2961,13 +3092,15 @@
     "owner_id": "49",
     "owner_name": "user_49",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-15"
+    "date": "2026-02-15",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "91",
@@ -3159,13 +3292,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-01-04"
+    "date": "2026-01-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "97",
@@ -3192,13 +3327,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-17"
+    "date": "2026-02-17",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "98",
@@ -3225,13 +3362,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-29"
+    "date": "2026-01-29",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "99",
@@ -3258,13 +3397,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-02-14"
+    "date": "2026-02-14",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "100",
@@ -3291,13 +3432,15 @@
     "owner_id": "49",
     "owner_name": "user_49",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-02-04"
+    "date": "2026-02-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "101",
@@ -3324,13 +3467,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-02-08"
+    "date": "2026-02-08",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "102",
@@ -3357,13 +3502,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "6ml",
-    "date": "2026-02-08"
+    "date": "2026-02-08",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "103",
@@ -3390,13 +3537,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-01-15"
+    "date": "2026-01-15",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "104",
@@ -3459,13 +3608,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "5ml",
-    "date": "2026-02-22"
+    "date": "2026-02-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "106",
@@ -3525,13 +3676,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-03"
+    "date": "2026-02-03",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "108",
@@ -3558,13 +3711,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-01-12"
+    "date": "2026-01-12",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "109",
@@ -3624,13 +3779,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-01-23"
+    "date": "2026-01-23",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "111",
@@ -3657,13 +3814,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-02-12"
+    "date": "2026-02-12",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "112",
@@ -3690,13 +3849,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-27"
+    "date": "2026-01-27",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "113",
@@ -3723,13 +3884,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-02-12"
+    "date": "2026-02-12",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "114",
@@ -3855,13 +4018,15 @@
     "owner_id": "8",
     "owner_name": "user_8",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-25"
+    "date": "2026-02-25",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "118",
@@ -3888,13 +4053,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-01-04"
+    "date": "2026-01-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "119",
@@ -3921,13 +4088,15 @@
     "owner_id": "27",
     "owner_name": "user_27",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-02-09"
+    "date": "2026-02-09",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "120",
@@ -4053,13 +4222,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "8ml",
-    "date": "2026-01-02"
+    "date": "2026-01-02",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "124",
@@ -4086,13 +4257,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-02-15"
+    "date": "2026-02-15",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "125",
@@ -4185,13 +4358,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "7ml",
-    "date": "2026-03-02"
+    "date": "2026-03-02",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "128",
@@ -4251,13 +4426,15 @@
     "owner_id": "42",
     "owner_name": "user_42",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-15"
+    "date": "2026-02-15",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "130",
@@ -4284,13 +4461,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-01-31"
+    "date": "2026-01-31",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "131",
@@ -4317,13 +4496,15 @@
     "owner_id": "7",
     "owner_name": "user_7",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "14ml",
-    "date": "2026-01-10"
+    "date": "2026-01-10",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "132",
@@ -4416,13 +4597,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-03-01"
+    "date": "2026-03-01",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "135",
@@ -4449,13 +4632,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-02-22"
+    "date": "2026-02-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "136",
@@ -4482,13 +4667,15 @@
     "owner_id": "49",
     "owner_name": "user_49",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-02-23"
+    "date": "2026-02-23",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "137",
@@ -4515,13 +4702,15 @@
     "owner_id": "25",
     "owner_name": "user_25",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-02-01"
+    "date": "2026-02-01",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "138",
@@ -4548,13 +4737,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "10ml",
-    "date": "2026-02-04"
+    "date": "2026-02-04",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "139",
@@ -4581,13 +4772,15 @@
     "owner_id": "4",
     "owner_name": "user_4",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-05"
+    "date": "2026-02-05",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "140",
@@ -4647,13 +4840,15 @@
     "owner_id": "25",
     "owner_name": "user_25",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-06"
+    "date": "2026-02-06",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "142",
@@ -4680,13 +4875,15 @@
     "owner_id": "21",
     "owner_name": "user_21",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "12ml",
-    "date": "2026-01-03"
+    "date": "2026-01-03",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "143",
@@ -4713,13 +4910,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-02-15"
+    "date": "2026-02-15",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "144",
@@ -4746,13 +4945,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "7ml",
-    "date": "2026-02-12"
+    "date": "2026-02-12",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "145",
@@ -4779,13 +4980,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "13ml",
-    "date": "2026-02-01"
+    "date": "2026-02-01",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "146",
@@ -4845,13 +5048,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "5ml",
-    "date": "2026-01-07"
+    "date": "2026-01-07",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "148",
@@ -4878,13 +5083,15 @@
     "owner_id": "15",
     "owner_name": "user_15",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "15ml",
-    "date": "2026-02-16"
+    "date": "2026-02-16",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "149",
@@ -4911,13 +5118,15 @@
     "owner_id": "32",
     "owner_name": "user_32",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "9ml",
-    "date": "2026-01-10"
+    "date": "2026-01-10",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "150",
@@ -4944,13 +5153,15 @@
     "owner_id": "28",
     "owner_name": "user_28",
     "owner_role": "Farmer",
-    "status": "pending",
+    "status": "Rejected",
     "vet_suggestion": "",
     "animal_count": 1,
     "weight_kg": 0,
     "symptom": "Unknown",
     "recommended_dose": "11ml",
-    "date": "2026-01-22"
+    "date": "2026-01-22",
+    "vet_notes": "System Auto-Rejected: Violation detected.",
+    "vet_status": "rejected"
   },
   {
     "record_id": "R001",
@@ -5751,5 +5962,103 @@
     "status": "Rejected",
     "vet_status": "rejected",
     "vet_notes": ""
+  },
+  {
+    "record_id": "FARM-1774802816977",
+    "country": "China",
+    "farm_id": "FARM701",
+    "animal_id": "DON980",
+    "animal_type": "Donkey",
+    "age_months": "6",
+    "weight_kg": "100",
+    "symptom": "Swollen udder",
+    "problem": "Mastitis",
+    "extra_notes": "mmm",
+    "drug_name": "Penicillin",
+    "recommended_dose": "1000 mg",
+    "compliance_status": "Pending",
+    "administration_date": "2026-03-29",
+    "status": "Approved",
+    "vet_status": "approved",
+    "vet_notes": "good"
+  },
+  {
+    "record_id": "FARM-1775151324289",
+    "country": "Australia",
+    "farm_id": "FARM403",
+    "animal_id": "GOA89",
+    "animal_type": "Goat",
+    "age_months": "6",
+    "weight_kg": "7",
+    "symptom": "Pain",
+    "problem": "Wound",
+    "extra_notes": "leg pain",
+    "drug_name": "Topical Antibiotic",
+    "recommended_dose": "14 mg",
+    "compliance_status": "Pending",
+    "administration_date": "2026-04-02",
+    "status": "Approved",
+    "vet_status": "approved",
+    "vet_notes": "done"
+  },
+  {
+    "record_id": "FARM-1775161588940",
+    "country": "Germany",
+    "farm_id": "FARM201",
+    "animal_id": "SHE781",
+    "animal_type": "Sheep",
+    "age_months": "6",
+    "weight_kg": "100",
+    "symptom": "Difficulty eating",
+    "problem": "Oral/Dental Issue",
+    "extra_notes": "teeth problem",
+    "drug_name": "Amoxicillin",
+    "recommended_dose": "1000 mg",
+    "compliance_status": "Pending",
+    "administration_date": "2026-04-02",
+    "status": "Approved",
+    "vet_status": "approved",
+    "vet_notes": "Exceeds MRL Limits",
+    "digital_signature": "VET-SIG-854BKD-19D4FE173C0"
+  },
+  {
+    "record_id": "FARM-1775192422045",
+    "country": "Australia",
+    "farm_id": "FARM404",
+    "animal_id": "CHI567",
+    "animal_type": "Chicken",
+    "age_months": "6",
+    "weight_kg": "1",
+    "symptom": "Discharge",
+    "problem": "Eye Infection",
+    "extra_notes": "red eye",
+    "drug_name": "Oxytetracycline",
+    "recommended_dose": "5 mg",
+    "compliance_status": "Pending",
+    "administration_date": "2026-04-03",
+    "status": "Approved",
+    "vet_status": "approved",
+    "vet_notes": "good",
+    "digital_signature": "VET-SIG-MSWOZ1-19D51C07E8E"
+  },
+  {
+    "record_id": "FARM-1775197594546",
+    "country": "USA",
+    "farm_id": "FARM101",
+    "animal_id": "PIG",
+    "animal_type": "Pig",
+    "age_months": "6",
+    "weight_kg": "100",
+    "symptom": "Difficulty breathing",
+    "problem": "Cough",
+    "extra_notes": "abcdefgh",
+    "drug_name": "Bromhexine",
+    "recommended_dose": "50 mg",
+    "compliance_status": "Pending",
+    "administration_date": "2026-04-03",
+    "status": "Approved",
+    "vet_status": "approved",
+    "vet_notes": "adfghk",
+    "digital_signature": "VET-SIG-82KZO5-19D5206FAD4"
   }
 ]

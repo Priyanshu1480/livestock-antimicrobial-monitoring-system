@@ -1,9 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PieChart, Pie, Cell, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar, LineChart, Line } from "recharts"
 import Navbar from "../components/Navbar"
 import Sidebar from "../components/Sidebar"
-import Loading from "../components/Loading"
+import Skeleton from "../components/Skeleton"
+import Toast from "../components/Toast"
 import Button from "../components/Button"
 import jsPDF from "jspdf"
 
@@ -147,6 +148,9 @@ function isSafeRecord(record) {
 function isViolationStatus(record) {
   if (isRejectedRecord(record)) return true
   const raw = (record.mrl_status || record.compliance_status || record.status || record.vet_status || "").toString().toLowerCase()
+  const residue = Number(record.residue_value || 0)
+  const limit = Number(record.MRL_limit || 0)
+  if (limit > 0 && residue > limit) return true
   return /(not safe|unsafe|violation|rejected|exceeds mrl)/i.test(raw)
 }
 
@@ -162,6 +166,7 @@ function AdminDashboard({ isDark, onThemeToggle }) {
   const [farmFilter, setFarmFilter] = useState("All")
   const [statusFilter, setStatusFilter] = useState("All")
   const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState("")
 
   const handleOverviewClick = (mode) => {
     setActive("Overview")
@@ -184,8 +189,8 @@ function AdminDashboard({ isDark, onThemeToggle }) {
     return db - da
   })
 
-const loadRecords = async () => {
-  setLoading(true)
+const loadRecords = async (bg = false) => {
+  if (!bg) setLoading(true)
   try {
     const res = await fetch(`${API_URL}/api/records`)
     const data = await res.json()
@@ -201,13 +206,34 @@ const loadRecords = async () => {
   } catch (err) {
     console.error(err)
   } finally {
-    setLoading(false)
+    if (!bg) setLoading(false)
   }
 }
 
   useEffect(() => {
     loadRecords()
+    const interval = setInterval(() => loadRecords(true), 3000)
+    return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const sectionElement = document.getElementById(`section-${active}`);
+    if (sectionElement) {
+      // scroll into view with offset for navbar
+      const offset = 100;
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = sectionElement.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [active])
 
   const summary = useMemo(() => {
     try {
@@ -334,6 +360,11 @@ const loadRecords = async () => {
 
   const displayedRecords = useMemo(() => {
     const sorted = [...filteredRecords].sort((a, b) => {
+      const stateA = getRecordState(a)
+      const stateB = getRecordState(b)
+      const reviewedA = stateA === "Approved" || stateA === "Rejected" ? 0 : 1
+      const reviewedB = stateB === "Approved" || stateB === "Rejected" ? 0 : 1
+      if (reviewedA !== reviewedB) return reviewedA - reviewedB
       const da = new Date(a.administration_date || a.date || 0)
       const db = new Date(b.administration_date || b.date || 0)
       return sortDirection === "asc" ? da - db : db - da
@@ -349,9 +380,16 @@ const loadRecords = async () => {
       return true
     })
     return filtered.slice().sort((a, b) => {
+      // Approved/Rejected records always appear before Pending
+      const stateA = getRecordState(a)
+      const stateB = getRecordState(b)
+      const reviewedA = stateA === "Approved" || stateA === "Rejected" ? 0 : 1
+      const reviewedB = stateB === "Approved" || stateB === "Rejected" ? 0 : 1
+      if (reviewedA !== reviewedB) return reviewedA - reviewedB
+      // Within same group, most recent first
       const da = new Date(a.administration_date || a.date || 0)
       const db = new Date(b.administration_date || b.date || 0)
-      return sortDirection === "asc" ? da - db : db - da
+      return db - da
     })
   }, [records, overviewMode, sortDirection])
 
@@ -381,7 +419,6 @@ const loadRecords = async () => {
           const priorityMap = { "Repeated Animal": 0, "High Residue": 1, "Violation": 2, "Safe": 3 }
           return (priorityMap[a.alertInfo.type] || 3) - (priorityMap[b.alertInfo.type] || 3)
         })
-        .slice(0, 15)
     } catch (err) {
       console.error("Error processing enhanced alerts:", err)
       return []
@@ -448,8 +485,8 @@ const loadRecords = async () => {
     }
   }, [records])
 
-  const recentActivities = useMemo(() => sortByDateDesc(records).slice(0, 5), [records])
-  const topViolations = useMemo(() => records.filter(isViolation).sort((a, b) => new Date(b.administration_date || b.date || 0) - new Date(a.administration_date || a.date || 0)).slice(0, 6), [records])
+  const recentActivities = useMemo(() => sortByDateDesc(records), [records])
+  const topViolations = useMemo(() => records.filter(isViolation).sort((a, b) => new Date(b.administration_date || b.date || 0) - new Date(a.administration_date || a.date || 0)), [records])
 
   // New analytics data
   const uniqueCountries = useMemo(() => Object.keys(summary.complianceByCountry).sort(), [summary.complianceByCountry])
@@ -468,6 +505,45 @@ const loadRecords = async () => {
       .filter((r) => r.animal_id === animalId)
       .sort((a, b) => new Date(b.administration_date) - new Date(a.administration_date))
   }
+
+  // Drug risk analysis
+  const drugRiskData = useMemo(() => {
+    const drugMap = {}
+    records.forEach(r => {
+      const d = r.drug_name || "Unknown"
+      if (!drugMap[d]) drugMap[d] = { total: 0, violations: 0, pending: 0, approved: 0 }
+      drugMap[d].total++
+      if (isViolationStatus(r)) drugMap[d].violations++
+      else if (isPendingRecord(r)) drugMap[d].pending++
+      else drugMap[d].approved++
+    })
+    return Object.entries(drugMap)
+      .map(([drug, stats]) => ({ drug, ...stats, riskRate: stats.total > 0 ? Math.round((stats.violations / stats.total) * 100) : 0 }))
+      .sort((a, b) => b.riskRate - a.riskRate)
+  }, [records])
+
+  // Country compliance scorecards
+  const countryScoreCards = useMemo(() => {
+    return Object.entries(summary.byCountryDetails)
+      .map(([country, d]) => ({
+        country,
+        total: d.count,
+        safe: d.safe,
+        unsafe: d.unsafe,
+        pending: d.pending,
+        score: d.count > 0 ? Math.round((d.safe / d.count) * 100) : 0
+      }))
+      .sort((a, b) => b.score - a.score)
+  }, [summary.byCountryDetails])
+
+  // System status — computed real-time signal
+  const systemStatus = useMemo(() => {
+    const alertCount = records.filter(isViolationStatus).length
+    const pendCount = records.filter(isPendingRecord).length
+    if (alertCount > summary.total * 0.3) return { label: "High Alert", color: "rose", icon: "🔴" }
+    if (pendCount > 5) return { label: "Pending Review", color: "amber", icon: "🟡" }
+    return { label: "Operational", color: "emerald", icon: "🟢" }
+  }, [records, summary])
 
   const getActivityTimeline = useMemo(() => {
     try {
@@ -528,45 +604,79 @@ const loadRecords = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-3 md:p-5">
-      {loading && <Loading />}
-      <Navbar role="Admin" homePath="/" onLogout={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); nav("/") }} isDark={isDark} onThemeToggle={onThemeToggle} />
-      <div className="mt-4 grid gap-3 md:grid-cols-[250px_1fr]">
-        <Sidebar items={sections} active={active} onSelect={setActive} />
+    <div className="dashboard-ambient-admin min-h-screen text-slate-100 flex font-sans overflow-x-hidden">
+      <Sidebar items={sections} active={active} onSelect={setActive} />
+      
+      <main className="flex-1 min-h-screen md:ml-64 p-4 md:p-8 lg:p-10 space-y-8 relative z-10 transition-all duration-300">
+        <Navbar role="Admin" homePath="/" onLogout={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); nav("/") }} isDark={isDark} onThemeToggle={onThemeToggle} />
+        
+        {message && <Toast message={message} onClose={() => setMessage("")} />}
 
-        <div className="space-y-3 max-w-7xl">
-          <div className="rounded-3xl border border-cyan-300/20 bg-slate-900/70 p-4 shadow-2xl backdrop-blur-xl">
-            <div className="flex flex-wrap justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Executive Command Center</p>
-                <h1 className="text-2xl font-bold">Regulatory SaaS Dashboard</h1>
-                <p className="text-slate-300 text-sm">Live compliance and antimicrobial safety monitoring for authorities.</p>
+        {/* SYSTEM STATUS TICKER */}
+        <div className={`flex items-center justify-between gap-6 rounded-2xl px-6 py-3 border backdrop-blur-md ${
+          systemStatus.color === 'emerald' ? 'bg-emerald-500/10 border-emerald-500/20' :
+          systemStatus.color === 'amber' ? 'bg-amber-500/10 border-amber-500/20' :
+          'bg-rose-500/10 border-rose-500/20'
+        }`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-base shrink-0">{systemStatus.icon}</span>
+            <div className="min-w-0">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${
+                systemStatus.color === 'emerald' ? 'text-emerald-400' : systemStatus.color === 'amber' ? 'text-amber-400' : 'text-rose-400'
+              }`}>System Status: {systemStatus.label}</span>
+              <div className="flex items-center gap-4 text-[11px] text-slate-400 mt-0.5 flex-wrap">
+                <span>📊 {summary.total} Records</span>
+                <span className="text-emerald-400">✓ {summary.safe} Safe</span>
+                <span className="text-rose-400">⚠ {summary.violations} Violations</span>
+                <span className="text-amber-400">⏳ {summary.pending} Pending</span>
+                <span className="text-cyan-400">🌍 {uniqueCountries.length} Countries</span>
+                <span className="text-purple-400">🏠 {uniqueFarms.length} Farms</span>
               </div>
-              <button onClick={exportReport} className="rounded-xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-3 py-2 text-xs font-semibold text-slate-900 shadow hover:scale-105 transition">Export CSV</button>
-              <button onClick={exportPDF} className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-100 shadow hover:scale-105 transition">Export PDF</button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`w-2 h-2 rounded-full animate-pulse ${
+              systemStatus.color === 'emerald' ? 'bg-emerald-400' : systemStatus.color === 'amber' ? 'bg-amber-400' : 'bg-rose-400'
+            }`} />
+            <span className="text-[10px] font-mono text-slate-500">LIVE</span>
+          </div>
+        </div>
+        <div className="max-w-[1400px] mx-auto space-y-8">
+          <div className="card-glass rounded-[2rem] p-8 md:p-10 relative overflow-hidden shrink-0 shadow-2xl border border-white/5">
+             <div className="absolute top-[-50%] right-[-10%] w-[50%] h-[100%] rounded-full bg-cyan-500/10 blur-[100px] pointer-events-none animate-pulse" />
+            <div className="flex flex-col md:flex-row justify-between gap-8 relative z-10">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-teal-400/80 font-medium mb-2">Executive Command Center</p>
+                <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Regulatory Dashboard</h1>
+                <p className="text-slate-400 text-sm">Live compliance and antimicrobial safety monitoring for authorities.</p>
+              </div>
+              <div className="flex gap-3 items-start shrink-0">
+                <Button variant="outline" onClick={exportPDF}>Export PDF</Button>
+                <Button variant="primary" onClick={exportReport}>Export CSV</Button>
+              </div>
             </div>
           </div>
 
           {/* ENHANCED FILTER BAR */}
-          <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-            <div className="space-y-3">
+          <div className="card-glass rounded-3xl p-6">
+            <div className="space-y-4">
               <div>
-                <label className="text-xs uppercase text-slate-400">Search Records</label>
+                <label className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-2 block">Search Records</label>
                 <input
                   type="text"
                   placeholder="Search by animal ID, farm ID, drug name..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full mt-1 rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+                  className="w-full rounded-xl bg-slate-800/50 border border-slate-700/50 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none transition-all"
                 />
               </div>
-              <div className="grid gap-2 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-4">
                 <div>
-                  <label className="text-xs uppercase text-slate-400">Country</label>
+                  <label className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-2 block">Country</label>
                   <select
                     value={countryFilter}
                     onChange={(e) => setCountryFilter(e.target.value)}
-                    className="w-full mt-1 rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-xs text-slate-100 focus:border-cyan-400 focus:outline-none"
+                    className="w-full rounded-xl bg-slate-800/50 border border-slate-700/50 px-4 py-2.5 text-sm text-slate-200 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="All">All Countries</option>
                     {uniqueCountries.map((c) => (
@@ -575,11 +685,11 @@ const loadRecords = async () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs uppercase text-slate-400">Farm</label>
+                  <label className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-2 block">Farm</label>
                   <select
                     value={farmFilter}
                     onChange={(e) => setFarmFilter(e.target.value)}
-                    className="w-full mt-1 rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-xs text-slate-100 focus:border-cyan-400 focus:outline-none"
+                    className="w-full rounded-xl bg-slate-800/50 border border-slate-700/50 px-4 py-2.5 text-sm text-slate-200 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="All">All Farms</option>
                     {uniqueFarms.map((f) => (
@@ -588,11 +698,11 @@ const loadRecords = async () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs uppercase text-slate-400">Status</label>
+                  <label className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-2 block">Status</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full mt-1 rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-xs text-slate-100 focus:border-cyan-400 focus:outline-none"
+                    className="w-full rounded-xl bg-slate-800/50 border border-slate-700/50 px-4 py-2.5 text-sm text-slate-200 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="All">All Status</option>
                     <option value="Safe">Safe</option>
@@ -611,11 +721,27 @@ const loadRecords = async () => {
             </div>
           </div>
 
-          {active === "Overview" && (
-          <div className="space-y-3">
-            {/* ENHANCED SUMMARY CARDS */}
-            <div className="grid gap-3 lg:grid-cols-4">
-              <button type="button" onClick={() => handleOverviewClick("all")} className={`w-full text-left rounded-2xl p-3 shadow-lg transition cursor-pointer ${overviewMode === "all" ? "bg-slate-700 border-cyan-400" : "bg-slate-800 border border-slate-700 hover:shadow-xl"}`}>
+          {loading && records.length === 0 ? (
+            <div className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-4">
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+              </div>
+              <Skeleton className="h-64 mt-6" />
+              <div className="grid gap-6 md:grid-cols-2 mt-6">
+                <Skeleton className="h-96" />
+                <Skeleton className="h-96" />
+              </div>
+            </div>
+          ) : (
+          <div className="space-y-8 pb-32">
+            {active === "Overview" && (
+            <div id="section-Overview" className="space-y-4">
+              {/* ENHANCED SUMMARY CARDS */}
+              <div className="grid gap-4 lg:grid-cols-4">
+              <button type="button" onClick={() => handleOverviewClick("all")} className={`w-full text-left rounded-2xl p-3 shadow-lg transition cursor-pointer ${overviewMode === "all" ? "bg-slate-700 border-cyan-400" : "card-glass hover:shadow-cyan-500/10"}`}>
                 <div className="text-xs uppercase text-cyan-400 font-semibold">Total Records</div>
                 <div className="mt-2 text-3xl font-bold text-cyan-300">{summary.total}</div>
                 <div className="text-xs text-slate-400 mt-1">Submitted & reviewed</div>
@@ -641,8 +767,10 @@ const loadRecords = async () => {
               Viewing: {overviewMode === "all" ? "All Records" : overviewMode === "safe" ? "Safe Records" : overviewMode === "unsafe" ? "Not Safe Records" : "Pending Review"}
             </div>
             {/* COUNTRY-WISE ANALYSIS */}
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            {overviewMode === "all" && (
+              <>
+                <div className="grid gap-3 lg:grid-cols-2">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300">Country-wise Breakdown</h3>
                 <div className="mt-3 space-y-2">
                   {Object.entries(summary.byCountryDetails).map(([country, details]) => (
@@ -660,7 +788,7 @@ const loadRecords = async () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300">Top Problems Detected</h3>
                 <div className="mt-3 space-y-1">
                   {topProblems.slice(0, 6).map(([problem, count]) => (
@@ -675,7 +803,7 @@ const loadRecords = async () => {
 
             {/* FARM & ANIMAL ANALYSIS */}
             <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300">Farms with Issues</h3>
                 <div className="mt-3 space-y-1 max-h-48 overflow-y-auto">
                   {criticalFarms.length > 0 ? criticalFarms.map(([farm, details]) => (
@@ -692,7 +820,7 @@ const loadRecords = async () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300">Most Treated Animals</h3>
                 <div className="mt-3 space-y-1 max-h-48 overflow-y-auto">
                   {topAnimals.slice(0, 8).map(([animal, count]) => (
@@ -706,7 +834,7 @@ const loadRecords = async () => {
             </div>
 
             {/* COUNTRY STATUS MAP */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-4 shadow-lg">
+            <div className="card-glass rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-semibold">Geographic Status Overview</h2>
@@ -760,9 +888,53 @@ const loadRecords = async () => {
                 })}
               </div>
             </div>
+            </>
+            )}
+
+            {/* COMPLIANCE GAUGE CARD */}
+            {overviewMode === "all" && summary.total > 0 && (
+              <div className="card-glass rounded-2xl p-6 border border-white/5">
+                <h3 className="text-sm font-bold text-cyan-300 uppercase tracking-widest mb-4">Global Compliance Gauge</h3>
+                <div className="flex flex-col md:flex-row gap-8 items-center">
+                  {/* Gauge */}
+                  <div className="relative w-40 h-40 shrink-0 mx-auto">
+                    <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                      <circle cx="60" cy="60" r="50" fill="none" stroke="#1e293b" strokeWidth="14" />
+                      <circle cx="60" cy="60" r="50" fill="none"
+                        stroke={summary.safetyRate >= 70 ? '#10b981' : summary.safetyRate >= 40 ? '#f59e0b' : '#ef4444'}
+                        strokeWidth="14"
+                        strokeDasharray={`${(summary.safetyRate / 100) * 314} 314`}
+                        strokeLinecap="round"
+                        style={{ transition: 'stroke-dasharray 1s ease' }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className={`text-3xl font-black ${
+                        summary.safetyRate >= 70 ? 'text-emerald-300' : summary.safetyRate >= 40 ? 'text-amber-300' : 'text-rose-300'
+                      }`}>{summary.safetyRate}%</span>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest">Safety</span>
+                    </div>
+                  </div>
+                  {/* Breakdown */}
+                  <div className="flex-1 grid grid-cols-2 gap-3">
+                    {[
+                      { label: "Safe", value: summary.safe, color: "emerald", pct: summary.safetyRate },
+                      { label: "Violations", value: summary.violations, color: "rose", pct: summary.total > 0 ? Math.round((summary.violations/summary.total)*100) : 0 },
+                      { label: "Pending", value: summary.pending, color: "amber", pct: summary.total > 0 ? Math.round((summary.pending/summary.total)*100) : 0 },
+                      { label: "Compliance", value: `${summary.complianceRate}%`, color: "cyan", pct: summary.complianceRate },
+                    ].map(item => (
+                      <div key={item.label} className={`rounded-xl p-3 bg-${item.color}-500/10 border border-${item.color}-500/20`}>
+                        <div className={`text-[10px] font-black uppercase tracking-wider text-${item.color}-400`}>{item.label}</div>
+                        <div className={`text-xl font-black text-${item.color}-300 mt-0.5`}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* COMPREHENSIVE DATA TABLE */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            <div className="card-glass rounded-2xl p-4">
               <div className="mb-3">
                 <h3 className="text-sm font-semibold text-cyan-300">Complete Records Database</h3>
                 <p className="text-xs text-slate-400">Showing {overviewDisplayedRecords.length} of {records.length} total records</p>
@@ -791,9 +963,21 @@ const loadRecords = async () => {
                         <td className="px-1.5 py-2 text-amber-300 text-[10px] font-semibold truncate">{r.drug_name || "—"}</td>
                         <td className="px-1.5 py-2 text-slate-400 text-[10px] truncate">{r.administration_date || r.date || "—"}</td>
                         <td className="px-1.5 py-2 text-[10px]">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold inline-block truncate max-w-16 ${(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
-                            {(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "SAFE" : "UNSAFE"}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold inline-block truncate max-w-16 ${(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "bg-emerald-900/40 text-emerald-300" : "bg-rose-900/40 text-rose-300"}`}>
+                              {(r.mrl_status === "Safe" || r.mrl_status === "safe") ? "SAFE" : "UNSAFE"}
+                            </span>
+                            {r.digital_signature && (
+                              <span title={`Signed: ${r.digital_signature}`} className="px-1 py-0.5 rounded bg-teal-900/50 text-teal-300 text-[8px] flex items-center border border-teal-500/30">
+                                ✍️ SIG
+                              </span>
+                            )}
+                            {r.consult_required && (
+                              <span title="Mandatory Consult Required" className="px-1 py-0.5 rounded bg-amber-900/50 text-amber-300 text-[8px] flex items-center border border-amber-500/30">
+                                ⚠️ C-RQD
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-1.5 py-2 text-[10px]">
                           <button onClick={() => setAnimalHistory(r.animal_id)} className="text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded hover:bg-slate-600 transition text-[9px] whitespace-nowrap">
@@ -819,10 +1003,10 @@ const loadRecords = async () => {
           )}
 
           {active === "Analytics" && (
-          <section className="space-y-3">
+          <section id="section-Analytics" className="space-y-3">
             {/* ANALYTICS STATISTICS CARDS */}
             <div className="grid gap-3 lg:grid-cols-4">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-xs uppercase text-slate-400 font-semibold mb-2">Total Records</h3>
                 <div className="text-3xl font-bold text-cyan-400">{summary.total}</div>
                 <div className="text-xs text-slate-400 mt-1">Complete treatment records</div>
@@ -853,7 +1037,7 @@ const loadRecords = async () => {
             </div>
 
             {/* CORE ANALYTICS CHARTS */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            <div className="card-glass rounded-2xl p-4">
               <h2 className="text-lg font-semibold mb-3">📊 Core Analytics</h2>
               <div className="grid gap-3 lg:grid-cols-4 h-72">
                 <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">MRL Safety Status</div><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={[{ name: "Safe", value: summary.safe }, { name: "Unsafe", value: summary.violations }]} dataKey="value" cx="50%" cy="50%" outerRadius={60}><Cell fill="#10b981"/><Cell fill="#ef4444"/></Pie><Tooltip /></PieChart></ResponsiveContainer></div>
@@ -865,7 +1049,7 @@ const loadRecords = async () => {
 
             {/* ADDITIONAL ANALYTICS */}
             <div className="grid gap-3 lg:grid-cols-2 h-72">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Health Issues Distribution</div>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={topHealthIssues.map(([condition, value]) => ({ condition: condition.substring(0, 12), value }))}>
@@ -877,7 +1061,7 @@ const loadRecords = async () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Farm Activity & Safety</div>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={farmData}>
@@ -894,7 +1078,7 @@ const loadRecords = async () => {
           )}
 
           {active === "Alerts" && (
-          <section className="space-y-3">
+          <section id="section-Alerts" className="space-y-3">
             {/* ALERTS STATISTICS CARDS */}
             <div className="grid gap-3 lg:grid-cols-4">
               <div className="rounded-2xl bg-rose-900/20 border border-rose-500/40 p-3 shadow-lg">
@@ -907,19 +1091,55 @@ const loadRecords = async () => {
                 <div className="mt-2 text-3xl font-bold text-amber-300">{enhancedAlerts.filter(a => a.alertInfo.type === "Repeated Animal").length}</div>
                 <div className="text-xs text-slate-400 mt-1">Same animal violations</div>
               </div>
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <div className="text-xs uppercase text-slate-400 font-semibold">High Dose Alerts</div>
                 <div className="mt-2 text-3xl font-bold text-amber-300">{enhancedAlerts.filter(a => a.alertInfo.type === "High Dose").length}</div>
                 <div className="text-xs text-slate-400 mt-1">Dose limit exceeded</div>
               </div>
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <div className="text-xs uppercase text-slate-400 font-semibold">Rejections</div>
                 <div className="mt-2 text-3xl font-bold text-rose-400">{enhancedAlerts.filter(a => a.alertInfo.type === "Rejected Case").length}</div>
                 <div className="text-xs text-slate-400 mt-1">Vet rejected records</div>
               </div>
             </div>
 
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            {/* DRUG RISK TABLE */}
+            <div className="card-glass rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black text-cyan-300 uppercase tracking-widest">Drug Risk Matrix</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Violation rate per antimicrobial agent</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {drugRiskData.slice(0, 8).map(d => (
+                  <div key={d.drug} className="flex items-center gap-4">
+                    <div className="w-28 shrink-0">
+                      <span className="text-xs font-bold text-slate-300 truncate block">{d.drug}</span>
+                      <span className="text-[10px] text-slate-500">{d.total} uses</span>
+                    </div>
+                    <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          d.riskRate >= 50 ? 'bg-gradient-to-r from-rose-600 to-rose-400' :
+                          d.riskRate >= 20 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                          'bg-gradient-to-r from-emerald-600 to-emerald-400'
+                        }`}
+                        style={{ width: `${Math.max(d.riskRate, 2)}%` }}
+                      />
+                    </div>
+                    <div className="w-16 text-right shrink-0">
+                      <span className={`text-xs font-black ${
+                        d.riskRate >= 50 ? 'text-rose-400' : d.riskRate >= 20 ? 'text-amber-400' : 'text-emerald-400'
+                      }`}>{d.riskRate}%</span>
+                      <span className="text-[10px] text-slate-500 block">risk</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card-glass rounded-2xl p-4">
               <h2 className="text-lg font-semibold mb-3">Alert Feed - Critical Issues</h2>
               
               {/* ALERT LEGEND */}
@@ -955,17 +1175,17 @@ const loadRecords = async () => {
                   }
                   
                   return (
-                    <div key={`alert-${r.record_id}`} className={`rounded-lg border-2 ${colorMap[r.alertInfo.color]} p-3 transition hover:shadow-lg`}>
+                    <div key={`alert-${r.record_id}`} className={`rounded-lg border-2 ${r.is_critical ? 'critical-alert-pulse border-rose-500 bg-rose-500/10' : colorMap[r.alertInfo.color]} p-3 transition hover:shadow-lg`}>
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{r.alertInfo.icon}</span>
+                          <span className="text-lg">{r.is_critical ? "⚠️" : r.alertInfo.icon}</span>
                           <div>
                             <div className="font-semibold text-slate-100">{r.record_id}</div>
-                            <div className={`text-xs font-semibold ${textColorMap[r.alertInfo.color]}`}>{r.alertInfo.type}</div>
+                            <div className={`text-xs font-semibold ${r.is_critical ? 'text-rose-400' : textColorMap[r.alertInfo.color]}`}>{r.is_critical ? "CRITICAL ALERT" : r.alertInfo.type}</div>
                           </div>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded ${badgeColorMap[r.alertInfo.color]}`}>
-                          {(r.mrl_status !== "Safe" && r.mrl_status !== "safe") ? "NOT SAFE" : "SAFE"}
+                        <span className={`text-[10px] uppercase font-black px-2 py-1 rounded-full ${r.is_critical ? 'bg-rose-600 text-white shadow-lg' : badgeColorMap[r.alertInfo.color]}`}>
+                          {r.is_critical ? "IMMEDIATE ATTENTION" : ((r.mrl_status !== "Safe" && r.mrl_status !== "safe") ? "NOT SAFE" : "SAFE")}
                         </span>
                       </div>
 
@@ -1037,12 +1257,57 @@ const loadRecords = async () => {
           )}
 
           {active === "Consumer Safety" && (
-          <section className="space-y-3">
+          <section id="section-Consumer Safety" className="space-y-3">
             {/* CONSUMER SAFETY HEADER */}
             <div className="rounded-2xl bg-gradient-to-r from-emerald-900/20 to-teal-900/20 border border-emerald-500/30 p-4 shadow-lg">
               <div>
                 <h2 className="text-lg font-semibold text-emerald-300">🛡️ Consumer Safety & Withdrawal Status</h2>
                 <p className="text-xs text-slate-400 mt-1">Last dose timeline, withdrawal periods, and product availability for consumer protection</p>
+              </div>
+            </div>
+
+            {/* COUNTRY COMPLIANCE SCORECARDS */}
+            <div className="card-glass rounded-2xl p-5">
+              <h3 className="text-sm font-black text-cyan-300 uppercase tracking-widest mb-4">Country Compliance Scorecards</h3>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {countryScoreCards.map(c => (
+                  <div key={c.country} className={`rounded-2xl p-4 border transition-all hover:scale-[1.02] ${
+                    c.score >= 70 ? 'bg-emerald-500/5 border-emerald-500/20' :
+                    c.score >= 40 ? 'bg-amber-500/5 border-amber-500/20' :
+                    'bg-rose-500/5 border-rose-500/20'
+                  }`}>
+                    <div className="flex items-start justify-between mb-3">
+                      <span className="text-sm font-black text-white">{c.country}</span>
+                      <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${
+                        c.score >= 70 ? 'bg-emerald-500/20 text-emerald-300' :
+                        c.score >= 40 ? 'bg-amber-500/20 text-amber-300' :
+                        'bg-rose-500/20 text-rose-300'
+                      }`}>{c.score}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full mb-3 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          c.score >= 70 ? 'bg-emerald-400' : c.score >= 40 ? 'bg-amber-400' : 'bg-rose-400'
+                        }`}
+                        style={{ width: `${c.score}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 text-[10px]">
+                      <div className="text-center">
+                        <div className="text-emerald-400 font-black">{c.safe}</div>
+                        <div className="text-slate-500">Safe</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-rose-400 font-black">{c.unsafe}</div>
+                        <div className="text-slate-500">Unsafe</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-amber-400 font-black">{c.pending}</div>
+                        <div className="text-slate-500">Pending</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1063,7 +1328,7 @@ const loadRecords = async () => {
                 <div className="mt-2 text-3xl font-bold text-cyan-300">{safetySummary.avgDaysRemaining}</div>
                 <div className="text-xs text-slate-400 mt-1">Average withdrawal time</div>
               </div>
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <div className="text-xs uppercase text-slate-400 font-semibold">Total Tracked</div>
                 <div className="mt-2 text-3xl font-bold text-slate-100">{safetySummary.total}</div>
                 <div className="text-xs text-slate-400 mt-1">Active records</div>
@@ -1071,7 +1336,7 @@ const loadRecords = async () => {
             </div>
 
             {/* WITHDRAWAL & PRODUCT AVAILABILITY TABLE */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            <div className="card-glass rounded-2xl p-4">
               <div className="mb-3">
                 <h3 className="text-sm font-semibold text-cyan-300">Last Dose Timeline & Product Availability</h3>
                 <p className="text-xs text-slate-400 mt-1">Last administered dosage with withdrawal countdown and consumer product status</p>
@@ -1138,7 +1403,7 @@ const loadRecords = async () => {
             {/* DETAILED WITHDRAWAL & PRODUCT STATUS */}
             <div className="grid gap-3 lg:grid-cols-2">
               {/* UPCOMING CLEARANCES */}
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-emerald-300 mb-3">✓ Ready for Consumer Use</h3>
                 <div className="space-y-2 max-h-72 overflow-y-auto">
                   {consumerSafetyData.filter(r => r.withdrawalStatus.status === "safe").length > 0 ? (
@@ -1165,7 +1430,7 @@ const loadRecords = async () => {
               </div>
 
               {/* PENDING CLEARANCES */}
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-amber-300 mb-3">⏳ Awaiting Consumer Use Clearance</h3>
                 <div className="space-y-2 max-h-72 overflow-y-auto">
                   {consumerSafetyData.filter(r => r.withdrawalStatus.status === "unsafe").length > 0 ? (
@@ -1196,7 +1461,7 @@ const loadRecords = async () => {
             </div>
 
             {/* PRODUCT-SPECIFIC AVAILABILITY INSIGHTS */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            <div className="card-glass rounded-2xl p-4">
               <h3 className="text-sm font-semibold text-cyan-300 mb-3">📦 Product-Specific Consumer Availability</h3>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-lg border border-slate-700 bg-slate-900 p-3">
@@ -1258,7 +1523,7 @@ const loadRecords = async () => {
           )}
 
           {active === "Reports" && (
-          <section className="space-y-3">
+          <section id="section-Reports" className="space-y-3">
             {/* PREMIUM REPORTS HEADER WITH EXPORT OPTIONS */}
             <div className="rounded-2xl bg-gradient-to-r from-cyan-900/20 to-indigo-900/20 border border-cyan-500/30 p-4 shadow-lg">
               <div className="flex flex-wrap justify-between items-start gap-3 mb-3">
@@ -1293,7 +1558,7 @@ const loadRecords = async () => {
 
             {/* REPORTS SUMMARY CARDS */}
             <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300 mb-3">Overall Summary</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center p-2 rounded bg-slate-900">
@@ -1315,7 +1580,7 @@ const loadRecords = async () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300 mb-3">Compliance Metrics</h3>
                 <div className="space-y-2">
                   <div>
@@ -1368,7 +1633,7 @@ const loadRecords = async () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <div className="text-xs uppercase text-cyan-400 font-semibold mb-2">📈 Key Metrics</div>
                 <div className="text-sm">
                   <div className="text-cyan-300 font-bold text-lg">{summary.pending}</div>
@@ -1384,7 +1649,7 @@ const loadRecords = async () => {
 
             {/* COUNTRY-WISE & PROBLEM-WISE SUMMARIES */}
             <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300 mb-3">Country-wise Summary</h3>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {Object.entries(reportsSummary.countryWise).sort((a, b) => b[1] - a[1]).map(([country, count]) => (
@@ -1396,7 +1661,7 @@ const loadRecords = async () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+              <div className="card-glass rounded-2xl p-4">
                 <h3 className="text-sm font-semibold text-cyan-300 mb-3">Problem-wise Summary</h3>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {Object.entries(reportsSummary.problemWise).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([problem, count]) => (
@@ -1410,7 +1675,7 @@ const loadRecords = async () => {
             </div>
 
             {/* DETAILED RECORDS TABLE */}
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
+            <div className="card-glass rounded-2xl p-4">
               <h3 className="text-sm font-semibold text-cyan-300 mb-3">Detailed Records</h3>
               <div className="text-xs text-slate-400 mb-2">Showing: {filterLabel} • {displayedRecords.length} records</div>
               <div className="overflow-y-auto max-h-96 rounded-lg border border-slate-700">
@@ -1471,31 +1736,44 @@ const loadRecords = async () => {
           </section>
           )}
         </div>
-      </div>
+        )}
+        </div>
+      </main>
 
       {animalHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-700 p-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold">Treatment History: {animalHistory}</h3>
-              <button onClick={() => setAnimalHistory(null)} className="text-xs px-2 py-1 bg-slate-700 rounded hover:bg-slate-600">Close</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-700/50 p-6 shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                History: {animalHistory}
+              </h3>
+              <button 
+                onClick={() => setAnimalHistory(null)} 
+                className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+              </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
               {getAnimalHistory(animalHistory).length > 0 ? (
                 getAnimalHistory(animalHistory).map((r) => (
-                  <div key={r.record_id} className={`rounded border p-2 text-xs ${normalizeStatus(r) === "safe" ? "border-emerald-500/30 bg-emerald-900/10" : normalizeStatus(r) === "unsafe" ? "border-rose-500/30 bg-rose-900/10" : "border-amber-500/30 bg-amber-900/10"}`}>
-                    <div className="flex justify-between mb-1">
-                      <span className="font-semibold">{r.record_id}</span>
-                      <span className={`text-[10px] px-2 py-1 rounded ${normalizeStatus(r) === "safe" ? "text-emerald-300" : normalizeStatus(r) === "unsafe" ? "text-rose-300" : "text-amber-300"}`}>{(r.status || r.mrl_status || r.compliance_status || "pending")}</span>
+                  <div key={r.record_id} className={`rounded-xl border p-3 text-sm transition-all hover:translate-x-1 ${normalizeStatus(r) === "safe" ? "border-emerald-500/20 bg-emerald-500/5" : normalizeStatus(r) === "unsafe" ? "border-rose-500/20 bg-rose-500/5" : "border-amber-500/20 bg-amber-500/5"}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-slate-100">{r.record_id}</span>
+                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${normalizeStatus(r) === "safe" ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : normalizeStatus(r) === "unsafe" ? "border-rose-500/30 text-rose-400 bg-rose-500/10" : "border-amber-500/30 text-amber-400 bg-amber-500/10"}`}>{(r.status || r.mrl_status || r.compliance_status || "pending")}</span>
                     </div>
-                    <div><span className="text-slate-400">Drug:</span> {r.drug_name}</div>
-                    <div><span className="text-slate-400">Problem:</span> {r.problem || r.symptom}</div>
-                    <div><span className="text-slate-400">Date:</span> {r.administration_date}</div>
-                    {r.vet_notes && <div className="text-slate-300 mt-1 italic text-[11px]">{r.vet_notes}</div>}
+                    <div className="grid grid-cols-2 gap-y-1 gap-x-2 text-[11px]">
+                      <div className="flex gap-1.5"><span className="text-slate-500">Drug:</span> <span className="text-slate-200 font-medium">{r.drug_name}</span></div>
+                      <div className="flex gap-1.5"><span className="text-slate-500">Date:</span> <span className="text-slate-200 font-medium">{r.administration_date}</span></div>
+                      <div className="col-span-2 flex gap-1.5"><span className="text-slate-500">Problem:</span> <span className="text-slate-200 font-medium">{r.problem || r.symptom}</span></div>
+                    </div>
+                    {r.vet_notes && <div className="mt-2 text-[10px] text-slate-400 bg-slate-800/50 p-2 rounded italic">“{r.vet_notes}”</div>}
                   </div>
                 ))
               ) : (
-                <div className="text-center text-slate-300 text-xs">No treatment history</div>
+                <div className="text-center text-slate-500 text-sm py-8 font-medium">No treatment history found</div>
               )}
             </div>
           </div>

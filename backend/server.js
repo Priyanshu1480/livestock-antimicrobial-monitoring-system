@@ -144,11 +144,11 @@ app.post("/api/records", (req, res) => {
   }
 });
 
-// PUT
+// PUT - Update single record
 app.put("/api/records/:id", (req, res) => {
   try {
     const recordId = req.params.id;
-    const { status, vet_notes } = req.body;
+    const { status, vet_notes, digital_signature, consult_required } = req.body;
     const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     const index = data.findIndex((r) => r.record_id === recordId);
     if (index === -1) return res.status(404).json({ message: "Record not found" });
@@ -157,12 +157,43 @@ app.put("/api/records/:id", (req, res) => {
       ...data[index],
       ...(status !== undefined ? { status } : {}),
       ...(vet_notes !== undefined ? { vet_notes } : {}),
+      ...(digital_signature !== undefined ? { digital_signature } : {}),
+      ...(consult_required !== undefined ? { consult_required } : {}),
       ...(status === "Approved" ? { vet_status: "approved" } : {}),
       ...(status === "Rejected" ? { vet_status: "rejected" } : {})
     };
 
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     res.json(data[index]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT - Bulk update records
+app.put("/api/records-bulk", (req, res) => {
+  try {
+    const { updates } = req.body; // Array: [{ record_id, status, vet_notes, ... }]
+    if (!Array.isArray(updates)) return res.status(400).json({ message: "Invalid updates format" });
+
+    const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    let updatedCount = 0;
+
+    updates.forEach(update => {
+      const idx = data.findIndex(r => r.record_id === update.record_id);
+      if (idx !== -1) {
+        data[idx] = {
+          ...data[idx],
+          ...update,
+          ...(update.status === "Approved" ? { vet_status: "approved" } : {}),
+          ...(update.status === "Rejected" ? { vet_status: "rejected" } : {})
+        };
+        updatedCount++;
+      }
+    });
+
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    res.json({ success: true, updatedCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

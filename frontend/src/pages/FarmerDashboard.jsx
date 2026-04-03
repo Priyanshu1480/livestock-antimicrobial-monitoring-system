@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import Sidebar from "../components/Sidebar"
-import Loading from "../components/Loading"
+import Skeleton from "../components/Skeleton"
+import Toast from "../components/Toast"
 import Button from "../components/Button"
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || ""
@@ -201,6 +202,8 @@ function FarmerDashboard({ isDark, onThemeToggle }) {
   const [showGuide, setShowGuide] = useState(false)
   const [dosageRec, setDosageRec] = useState(null)
   const [dosageLoading, setDosageLoading] = useState(false)
+  const [recordSearch, setRecordSearch] = useState("")
+  const [recordStatusTab, setRecordStatusTab] = useState("All")
   
   // Simplified state management - FIXED
   const [country, setCountry] = useState("")
@@ -270,7 +273,11 @@ useEffect(() => {
     clearInterval(interval)
     window.removeEventListener("focus", fetchRecords)
   }
-}, []);
+}, [])
+
+useEffect(() => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}, [active, step])
 
   // Fetch dosage recommendation when symptom/weight/age changes
   useEffect(() => {
@@ -300,8 +307,29 @@ useEffect(() => {
   const summary = useMemo(() => {
     const total = records.length
     const recent = records.slice(-4)
-    return { total, recent }
+    const approved = records.filter(r => (r.status || "").toLowerCase() === "approved" || (r.vet_status || "").toLowerCase() === "approved").length
+    const rejected = records.filter(r => (r.status || "").toLowerCase() === "rejected" || (r.vet_status || "").toLowerCase() === "rejected").length
+    const pending = records.filter(r => (r.status || "").toLowerCase() === "pending" || (r.vet_status || "").toLowerCase() === "not reviewed").length
+    const critical = records.filter(r => r.is_critical).length
+    const healthScore = total > 0 ? Math.round((approved / total) * 100) : 0
+    return { total, recent, approved, rejected, pending, critical, healthScore }
   }, [records])
+
+  const filteredRecords = useMemo(() => {
+    const term = recordSearch.toLowerCase()
+    return records.filter(r => {
+      if (term) {
+        const haystack = [r.animal_id, r.drug_name, r.farm_id, r.country, r.problem, r.symptom].filter(Boolean).join(" ").toLowerCase()
+        if (!haystack.includes(term)) return false
+      }
+      if (recordStatusTab === "Approved") return (r.status || "").toLowerCase() === "approved" || (r.vet_status || "").toLowerCase() === "approved"
+      if (recordStatusTab === "Rejected") return (r.status || "").toLowerCase() === "rejected" || (r.vet_status || "").toLowerCase() === "rejected"
+      if (recordStatusTab === "Pending") return (r.status || "").toLowerCase() === "pending" || (r.vet_status || "").toLowerCase() === "not reviewed"
+      return true
+    })
+  }, [records, recordSearch, recordStatusTab])
+
+  const criticalRecords = useMemo(() => records.filter(r => r.is_critical || (r.consult_required && (r.vet_status || "").toLowerCase() !== "not reviewed")), [records])
 
   const latest = useMemo(() => records.slice(-3).reverse(), [records])
 
@@ -386,40 +414,106 @@ useEffect(() => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-cyan-900 text-slate-100 p-3 md:p-5">
-      <Navbar role="Farmer" homePath="/" onLogout={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); nav("/") }} isDark={isDark} onThemeToggle={onThemeToggle} />
-      <div className="mt-4 grid gap-3 md:grid-cols-[250px_1fr]">
-        <Sidebar items={sidebarItems} active={active} onSelect={setActive} />
-
-        <div className="space-y-3">
-          {loading && <Loading />}
-
-          <div className="rounded-3xl border border-emerald-400/20 bg-slate-900/80 p-4 shadow-2xl backdrop-blur-xl">
-            <div className="flex flex-wrap justify-between gap-2">
+    <div className="dashboard-ambient-farmer min-h-screen text-slate-100 flex font-sans overflow-x-hidden">
+      <Sidebar items={sidebarItems} active={active} onSelect={setActive} />
+      
+      <main className="flex-1 min-h-screen md:ml-64 p-4 md:p-8 lg:p-10 space-y-8 relative z-10 transition-all duration-300">
+        <Navbar role="Farmer" homePath="/" onLogout={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); nav("/") }} isDark={isDark} onThemeToggle={onThemeToggle} />
+        
+        {message && <Toast message={message} type={message.includes("Error") || message.includes("✗") ? "error" : "success"} onClose={() => setMessage("")} />}
+        
+        <div className="max-w-[1400px] mx-auto space-y-8">
+          <div className="card-glass rounded-[2rem] p-8 md:p-10 relative overflow-hidden shrink-0 shadow-2xl border border-white/5">
+             <div className="absolute top-[-50%] right-[-10%] w-[50%] h-[100%] rounded-full bg-emerald-500/10 blur-[100px] pointer-events-none animate-pulse" />
+            <div className="flex flex-col md:flex-row justify-between gap-8 relative z-10">
               <div>
-                <p className="text-xs uppercase tracking-wide text-cyan-300">Farm Intelligence</p>
-                <h1 className="text-2xl font-bold">Farmer Safety Command</h1>
-                <p className="text-slate-300 text-sm">Submit and monitor medication records from your farm.</p>
+                <p className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  Livestock Intelligence Hub
+                </p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">Farmer Management Terminal</h1>
+                <p className="text-slate-400 text-sm max-w-md">Record treatments, monitor livestock health, and ensure compliance with digital precision.</p>
               </div>
-              <div className="flex gap-3 flex-wrap">
-                <div className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-bold text-white shadow-lg hover:shadow-emerald-500/50 hover:scale-105 transition-all">
-                  💉 Treated: {summary.total}
+              <div className="flex flex-wrap justify-end gap-3 self-start">
+                <div className="min-w-[120px] rounded-2xl bg-slate-800/50 border border-white/5 p-4 backdrop-blur-md">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold italic mb-1">Total Logs</div>
+                  <div className="text-2xl font-black text-white">{summary.total}</div>
                 </div>
-                <div className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all">
-                  📋 Recent: {summary.recent.length}
+                <div className="min-w-[120px] rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 backdrop-blur-md">
+                  <div className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold italic mb-1">Recent Activity</div>
+                  <div className="text-2xl font-black text-emerald-300">{summary.recent.length}</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg"><div className="text-xs uppercase text-slate-400">Total Treatments</div><div className="text-2xl font-bold text-cyan-300">{summary.total}</div></div>
-            <div className="rounded-2xl bg-cyan-900/15 border border-cyan-400/30 p-3 shadow-lg"><div className="text-xs uppercase text-cyan-200">Recent</div><div className="text-2xl font-bold text-cyan-300">{summary.recent.length}</div></div>
-            <div className="rounded-2xl bg-emerald-900/15 border border-emerald-500/30 p-3 shadow-lg"><div className="text-xs uppercase text-emerald-200">Easy Guide</div><div className="text-2xl font-bold text-emerald-300">Beginner</div></div>
-          </div>
+          {loading && records.length === 0 ? (
+            <div className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-4">
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+              </div>
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Skeleton className="lg:col-span-2 h-[500px]" />
+                <Skeleton className="h-[500px]" />
+              </div>
+            </div>
+          ) : (
+          <div className="space-y-8 pb-32">
+            {/* VET FEEDBACK ALERT BANNER */}
+            {criticalRecords.length > 0 && (
+              <div className="animate-in fade-in slide-in-from-top duration-500">
+                <div className="flex items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-rose-600/20 via-rose-500/10 to-transparent border border-rose-500/30 px-6 py-4 shadow-xl shadow-rose-500/10 backdrop-blur-md">
+                  <div className="flex items-center gap-4">
+                    <div className="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                      <span className="text-rose-400 text-lg animate-pulse">⚠</span>
+                    </div>
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-widest text-rose-400">Vet Alert</span>
+                      <p className="text-sm font-semibold text-white">{criticalRecords.length} of your records {criticalRecords.length === 1 ? 'has' : 'have'} been flagged for clinical follow-up</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setActive("My Records"); setRecordStatusTab("All"); setRecordSearch("") }}
+                    className="px-5 py-2.5 bg-rose-500 hover:bg-rose-400 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shrink-0 shadow-lg shadow-rose-500/20"
+                  >
+                    View Now
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {active === "Add New Treatment" && (
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="card-glass rounded-2xl p-5 border border-white/5 transition-all hover:border-cyan-500/20 group">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 font-black mb-2">Total Treatments</div>
+                  <div className="text-3xl font-black text-white">{summary.total}</div>
+                  <div className="mt-2 h-0.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-cyan-500 rounded-full" style={{ width: `${Math.min(summary.total, 100)}%` }} /></div>
+                </div>
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-5 transition-all hover:border-emerald-500/40">
+                  <div className="text-[10px] uppercase tracking-widest text-emerald-500 font-black mb-2">Approved</div>
+                  <div className="text-3xl font-black text-emerald-300">{summary.approved}</div>
+                  <div className="mt-2 h-0.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: summary.total ? `${(summary.approved / summary.total) * 100}%` : '0%' }} /></div>
+                </div>
+                <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-5 transition-all hover:border-amber-500/40">
+                  <div className="text-[10px] uppercase tracking-widest text-amber-500 font-black mb-2">Awaiting Review</div>
+                  <div className="text-3xl font-black text-amber-300">{summary.pending}</div>
+                  <div className="mt-2 h-0.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-amber-500 rounded-full" style={{ width: summary.total ? `${(summary.pending / summary.total) * 100}%` : '0%' }} /></div>
+                </div>
+                <div className="rounded-2xl bg-slate-800/60 border border-white/5 p-5 transition-all hover:border-white/10">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 font-black mb-2">Herd Health Score</div>
+                  <div className={`text-3xl font-black ${summary.healthScore >= 70 ? 'text-emerald-300' : summary.healthScore >= 40 ? 'text-amber-300' : 'text-rose-300'}`}>{summary.healthScore}<span className="text-base font-bold text-slate-500 ml-1">%</span></div>
+                  <div className={`mt-2 text-[10px] font-black uppercase tracking-widest ${summary.healthScore >= 70 ? 'text-emerald-500' : summary.healthScore >= 40 ? 'text-amber-500' : 'text-rose-500'}`}>
+                    {summary.healthScore >= 70 ? '✓ Excellent' : summary.healthScore >= 40 ? '~ Good' : '! Needs Attention'}
+                  </div>
+                </div>
+              </div>
+            )}
 
           {active === "Add New Treatment" && (
-            <section className="rounded-2xl bg-slate-800 border border-slate-700 p-4 shadow-lg">
+            <section className="card-glass hover:shadow-cyan-500/10 rounded-[1.5rem] p-5 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="font-semibold text-lg">➕ Add New Treatment Record</h2>
@@ -890,29 +984,139 @@ useEffect(() => {
           )}
 
           {active === "My Records" && (
-            <section className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-              <div className="flex items-center justify-between"><div><h2 className="font-semibold">My Records</h2><p className="text-xs text-slate-300">Recent treatments submitted from your farm.</p></div><span className="text-xs text-cyan-300">{records.length} total</span></div>
-              <div className="mt-3 grid gap-2">
-                {records.length === 0 ? <div className="text-slate-300 text-xs">No records yet.</div> : records.slice(0, 10).map((r) => (
-                  <div key={r.record_id} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold text-cyan-300">{r.record_id}</div>
-                        <div className="text-slate-400 mt-1">{r.country || "—"} → {r.farm_id || "—"} → {r.animal_id || "—"}</div>
+            <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-white">Treatment Archives</h2>
+                  <p className="text-sm text-slate-400">Comprehensive history of medications administered at your facility.</p>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-white/5 text-xs font-bold text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                  {filteredRecords.length} / {records.length} RECORDS
+                </div>
+              </div>
+
+              {/* Search + Status Filters */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search by Animal ID, Drug, Farm, Country..."
+                    value={recordSearch}
+                    onChange={e => setRecordSearch(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-700 bg-slate-900/80 px-5 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-all pr-12 shadow-inner"
+                  />
+                  <svg className="absolute right-4 top-3.5 text-slate-500 w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { key: "All", label: "All Records", count: records.length, color: "slate" },
+                    { key: "Approved", label: "Approved", count: summary.approved, color: "emerald" },
+                    { key: "Pending", label: "Pending Review", count: summary.pending, color: "amber" },
+                    { key: "Rejected", label: "Rejected", count: summary.rejected, color: "rose" }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setRecordStatusTab(tab.key)}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 border ${
+                        recordStatusTab === tab.key
+                          ? tab.key === "Approved" ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
+                          : tab.key === "Pending" ? "bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/20"
+                          : tab.key === "Rejected" ? "bg-rose-500 text-white border-rose-400 shadow-lg shadow-rose-500/20"
+                          : "bg-white text-slate-950 border-white/30 shadow-lg"
+                          : "bg-slate-800/50 text-slate-400 border-white/5 hover:border-slate-600 hover:text-slate-200"
+                      }`}
+                    >
+                      {tab.label}
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                        recordStatusTab === tab.key ? 'bg-black/20' : 'bg-slate-700 text-slate-400'
+                      }`}>{tab.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                {filteredRecords.length === 0 ? (
+                  <div className="text-center py-20 bg-slate-900/20 border-2 border-dashed border-white/5 rounded-[2rem]">
+                    <p className="text-slate-500 font-medium italic">{recordSearch || recordStatusTab !== "All" ? "No records match your search or filter." : "No clinical records found for this sector."}</p>
+                  </div>
+                ) : filteredRecords.map((r) => (
+                  <div key={r.record_id} className={`group relative rounded-[2rem] bg-slate-900/40 border p-6 md:p-8 transition-all hover:bg-slate-800/60 hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/5 overflow-hidden ${r.is_critical ? 'critical-alert-pulse bg-rose-500/5' : 'border-white/5'}`}>
+                    <div className="absolute top-0 right-0 p-6 flex flex-col items-end gap-2">
+                       <span className={`text-[10px] uppercase font-black px-3 py-1.5 rounded-full border shadow-sm ${r.status === "Approved" ? "border-emerald-500/30 text-emerald-400 bg-emerald-400/5" : r.status === "Rejected" ? "border-rose-500/30 text-rose-400 bg-rose-400/5" : "border-slate-500/30 text-slate-400 bg-slate-400/5"}`}>
+                        {r.is_critical ? "⚠️ CRITICAL ALERT" : (r.status || "PENDING REVIEW")}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500 tracking-tighter">{r.administration_date}</span>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shrink-0 group-hover:scale-110 transition-transform ${r.is_critical ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                        {r.is_critical ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 3.43-2 3.43s2.17-.5 3.43-2c1.57-1.87 3.23-3.38 4.57-4.57l4.57-4.57c1.41-1.41 1.41-3.7 0-5.11-1.41-1.41-3.7-1.41-5.11 0L5.43 8.11c-1.19 1.34-2.7 3-4.57 4.57z"/></svg>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <div className={r.status === "Rejected" ? "text-rose-400" : r.status === "Approved" ? "text-emerald-400" : "text-slate-400"}>{r.status || r.compliance_status || "Pending"}</div>
-                        <div className="text-slate-400">{r.administration_date || "—"}</div>
+
+                      <div className="flex-1 space-y-4">
+                        <div>
+                          <div className={`text-[10px] font-black uppercase tracking-widest mb-1 ${r.is_critical ? 'text-rose-500' : 'text-emerald-500'}`}>{r.animal_type} • SPECIMEN {r.animal_id}</div>
+                          <h3 className="text-xl font-black text-white group-hover:text-emerald-400 transition-colors uppercase italic tracking-tight">{r.drug_name}</h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-white/5">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Symptom</p>
+                            <p className="text-sm font-semibold text-slate-200">{r.symptom}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Dosage Administered</p>
+                            <p className="text-sm font-semibold text-slate-200">{r.recommended_dose}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Farm Authority</p>
+                            <p className="text-sm font-semibold text-slate-200">{r.farm_id}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Region</p>
+                            <p className="text-sm font-semibold text-slate-200">{r.country}</p>
+                          </div>
+                        </div>
+
+                        {r.extra_notes && (
+                          <div className="text-xs text-slate-400 italic bg-slate-950/30 p-3 rounded-xl border border-white/5">
+                             “{r.extra_notes}”
+                          </div>
+                        )}
+
+                        {r.vet_notes && (
+                          <div className={`border rounded-2xl p-4 animate-pulse ${r.is_critical ? 'bg-rose-500/10 border-rose-500/30' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <svg className={r.is_critical ? "text-rose-400" : "text-emerald-400"} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${r.is_critical ? 'text-rose-400' : 'text-emerald-400'}`}>Clinical Expert Feedback</span>
+                            </div>
+                            <p className={`text-xs font-medium leading-relaxed ${r.is_critical ? 'text-rose-100' : 'text-emerald-100'}`}>“{r.vet_notes}”</p>
+                          </div>
+                        )}
+
+                        {(r.consult_required || r.is_critical) && (
+                          <div className={`border rounded-2xl p-4 flex items-center gap-4 ${r.is_critical ? 'bg-rose-600/20 border-rose-500/50 text-rose-200' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'}`}>
+                             <div className="p-2 rounded-full bg-rose-500/20"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+                             <div className="text-xs font-bold uppercase tracking-wide">
+                               {r.is_critical ? "Immediate clinical intervention mandated" : "Mandatory clinical follow-up required"}
+                             </div>
+                          </div>
+                        )}
+
+                        {r.digital_signature && (
+                          <div className="flex items-center gap-2 text-[10px] text-teal-300 font-mono holographic-badge px-4 py-2.5 rounded-full w-fit">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                            ELECTRONICALLY VERIFIED: {r.digital_signature}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-slate-400">Animal:</span> <span className="text-white">{r.animal_type || "—"}</span></div>
-                      <div><span className="text-slate-400">Drug:</span> <span className="text-white">{r.drug_name || "—"}</span></div>
-                      <div><span className="text-slate-400">Symptom:</span> <span className="text-white">{r.symptom || "—"}</span></div>
-                      <div><span className="text-slate-400">Dose:</span> <span className="text-white">{r.recommended_dose || "—"}</span></div>
-                    </div>
-                    {r.extra_notes && <div className="mt-2 text-xs text-slate-400">📝 Extra notes: {r.extra_notes}</div>}
-                    {r.vet_notes && <div className="mt-2 text-xs text-emerald-300">💬 Vet note: {r.vet_notes}</div>}
                   </div>
                 ))}
               </div>
@@ -920,116 +1124,81 @@ useEffect(() => {
           )}
 
           {active === "Dose Guide" && (
-            <section className="space-y-3">
-              <div className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-                <div>
-                  <h2 className="font-semibold text-lg text-cyan-300">Antimicrobial Dosage & Safety Guide</h2>
-                  <p className="text-xs text-slate-300 mt-1">Recommended dosages, withdrawal periods, and residue limits per drug. Ensure animal welfare by following guidelines.</p>
-                </div>
+            <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="card-glass rounded-[2rem] p-8 overflow-hidden relative border border-white/5">
+                 <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[150%] rounded-full bg-cyan-500/5 blur-[80px]" />
+                  <div className="relative z-10">
+                    <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-black mb-1">Pharmacopeia Knowledge Base</p>
+                    <h2 className="text-3xl font-black text-white italic tracking-tight">PLATINUM DOSAGE GUIDE</h2>
+                    <p className="text-slate-400 text-sm mt-2 max-w-2xl font-medium">Standardized antimicrobial protocols and withdrawal thresholds for professional livestock management.</p>
+                  </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <div className="font-semibold text-cyan-300 text-sm">Penicillin</div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-400">Dosage:</span><span className="text-white font-semibold">20 mg/kg</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Withdrawal:</span><span className="text-amber-300 font-semibold">7 days</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">MRL Limit:</span><span className="text-orange-300 font-semibold">50 µg/kg</span></div>
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700 pt-1">For bacterial infections in cattle, sheep, goats</div>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { name: "Penicillin", dose: "20 mg/kg", withdrawal: "7 days", mrl: "50 µg/kg", note: "Primary for bacterial infections in ruminants" },
+                  { name: "Oxytetracycline", dose: "25 mg/kg", withdrawal: "5 days", mrl: "100 µg/kg", note: "Broad-spectrum coverage for systemic issues" },
+                  { name: "Amoxicillin", dose: "15 mg/kg", withdrawal: "6 days", mrl: "60 µg/kg", note: "Optimized for respiratory & mastitis clinical signs" },
+                  { name: "Enrofloxacin", dose: "10 mg/kg", withdrawal: "4 days", mrl: "30 µg/kg", note: "High-potency fluoroquinolone; use with caution" },
+                  { name: "Doxycycline", dose: "22 mg/kg", withdrawal: "5 days", mrl: "90 µg/kg", note: "Targeted respiratory tract therapeutic" },
+                  { name: "Streptomycin", dose: "20 mg/kg", withdrawal: "7 days", mrl: "80 µg/kg", note: "Aminoglycoside specialized for mycobacterial cases" }
+                ].map((drug) => (
+                   <div key={drug.name} className="group rounded-[2rem] bg-slate-900/40 border border-white/5 p-6 transition-all hover:bg-slate-800/60 hover:border-cyan-500/30">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 group-hover:scale-110 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></div>
+                      <h3 className="text-xl font-black text-white italic tracking-tight uppercase">{drug.name}</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Clinical Dosage</span>
+                        <span className="text-sm font-black text-slate-100 uppercase">{drug.dose}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Withdrawal Period</span>
+                        <span className="text-sm font-black text-amber-400 uppercase italic">{drug.withdrawal}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Target MRL Limit</span>
+                        <span className="text-sm font-black text-orange-400 uppercase">{drug.mrl}</span>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-[11px] text-slate-500 italic font-medium leading-relaxed">“{drug.note}”</p>
                   </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <div className="font-semibold text-cyan-300 text-sm">Oxytetracycline</div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-400">Dosage:</span><span className="text-white font-semibold">25 mg/kg</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Withdrawal:</span><span className="text-amber-300 font-semibold">5 days</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">MRL Limit:</span><span className="text-orange-300 font-semibold">100 µg/kg</span></div>
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700 pt-1">Broad-spectrum antibiotic for various infections</div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <div className="font-semibold text-cyan-300 text-sm">Amoxicillin</div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-400">Dosage:</span><span className="text-white font-semibold">15 mg/kg</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Withdrawal:</span><span className="text-amber-300 font-semibold">6 days</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">MRL Limit:</span><span className="text-orange-300 font-semibold">60 µg/kg</span></div>
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700 pt-1">Beta-lactam antibiotic for respiratory & mastitis</div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <div className="font-semibold text-cyan-300 text-sm">Enrofloxacin</div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-400">Dosage:</span><span className="text-white font-semibold">10 mg/kg</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Withdrawal:</span><span className="text-amber-300 font-semibold">4 days</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">MRL Limit:</span><span className="text-orange-300 font-semibold">30 µg/kg</span></div>
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700 pt-1">Fluoroquinolone for serious infections</div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <div className="font-semibold text-cyan-300 text-sm">Doxycycline</div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-400">Dosage:</span><span className="text-white font-semibold">22 mg/kg</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Withdrawal:</span><span className="text-amber-300 font-semibold">5 days</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">MRL Limit:</span><span className="text-orange-300 font-semibold">90 µg/kg</span></div>
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700 pt-1">Tetracycline for respiratory infections</div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                  <div className="font-semibold text-cyan-300 text-sm">Streptomycin</div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-300">
-                    <div className="flex justify-between"><span className="text-slate-400">Dosage:</span><span className="text-white font-semibold">20 mg/kg</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Withdrawal:</span><span className="text-amber-300 font-semibold">7 days</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">MRL Limit:</span><span className="text-orange-300 font-semibold">80 µg/kg</span></div>
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700 pt-1">Aminoglycoside for tuberculosis-like infections</div>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <div className="rounded-2xl bg-gradient-to-r from-rose-900/20 to-rose-900/10 border border-rose-500/30 p-4 shadow-lg">
-                <h3 className="font-semibold text-rose-300 text-sm mb-2">Critical Safety Information</h3>
-                <ul className="space-y-1.5 text-xs text-rose-200">
-                  <li className="flex gap-2"><span className="text-rose-400 font-bold">•</span><span><strong>Withdrawal Period:</strong> Mandatory rest period before animal can be sold/consumed. Violating this causes residue violations.</span></li>
-                  <li className="flex gap-2"><span className="text-rose-400 font-bold">•</span><span><strong>MRL (Maximum Residue Limit):</strong> Safe residue level in food. Exceeding this endangers public health.</span></li>
-                  <li className="flex gap-2"><span className="text-rose-400 font-bold">•</span><span><strong>Dosage Calculation:</strong> Based on weight (kg) × dosage (mg/kg). Always follow weight accurately.</span></li>
-                  <li className="flex gap-2"><span className="text-rose-400 font-bold">•</span><span><strong>Age Adjustments:</strong> Young animals (&lt;6 months) may need 20% less; older animals may need 10% less.</span></li>
-                  <li className="flex gap-2"><span className="text-rose-400 font-bold">•</span><span><strong>Record Everything:</strong> Keep detailed records of all treatments for regulatory compliance.</span></li>
-                </ul>
+              <div className="rounded-[2.5rem] bg-gradient-to-br from-rose-500/10 via-slate-900 to-slate-950 border border-rose-500/20 p-8 md:p-10 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-[-50%] right-[-10%] w-[40%] h-[200%] rounded-full bg-rose-500/5 blur-[60px]" />
+                <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
+                  <div className="w-20 h-20 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400 border border-rose-500/30 shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+                  <div>
+                    <h3 className="text-2xl font-black text-rose-300 italic tracking-tight mb-3">CRITICAL COMPLIANCE PROTOCOLS</h3>
+                    <ul className="grid sm:grid-cols-2 gap-4">
+                      {[
+                        { t: "Withdrawal Discipline", d: "Mandatory clinical pause before market circulation to eliminate residue drift." },
+                        { t: "MRL Precision", d: "Rigid adherence to Maximum Residue Limits protects broad public health integrity." },
+                        { t: "Volumetric Accuracy", d: "Milligram-precision dosing based on verified specimen weight metrics." },
+                        { t: "Temporal Logging", d: "Immediate digital entry of treatment duration ensures audit-ready compliance." }
+                      ].map(item => (
+                        <li key={item.t} className="flex gap-3">
+                          <span className="text-rose-500 font-black">•</span>
+                          <div>
+                            <p className="text-[11px] font-black uppercase text-slate-100 tracking-widest">{item.t}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed font-medium">{item.d}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </section>
-          )}
-
-          <section className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-            <h2 className="font-semibold">Quick Insights</h2>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {latest.length === 0 && <div className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-xs text-slate-300">No records yet.</div>}
-              {latest.map((r) => (
-                <div key={`ins-${r.record_id}`} className="rounded-xl border border-cyan-500/20 bg-slate-900 p-2 text-xs">
-                  <div className="font-semibold">{r.record_id}</div>
-                  <div>{r.animal_id || r.animal_type} • {r.drug_name}</div>
-                  <div className={isViolation(r) ? "text-rose-300" : "text-emerald-300"}>{isViolation(r) ? "Violation" : "Safe"}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-2xl bg-slate-800 border border-slate-700 p-3 shadow-lg">
-            <div className="flex items-center justify-between"><h3 className="font-semibold">Treatment Timeline</h3><span className="text-xs text-slate-300">Latest entries</span></div>
-            <ul className="mt-2 space-y-1 text-xs">
-              {latest.map((r) => (
-                <li key={`tl-${r.record_id}`} className="rounded-lg border border-slate-700 bg-slate-900 p-2"><div className="font-semibold">{r.record_id}</div><div>{r.administration_date || "N/A"} • {r.drug_name || "Unknown"} • {r.withdrawal_end_date || "No date"}</div></li>
-              ))}
-              {!latest.length && <li className="text-slate-300">No timeline data yet.</li>}
-            </ul>
-          </section>
-
-          {message && <div className="rounded-xl border border-slate-600 bg-slate-800 p-2 text-sm">{message}</div>}
+          )} 
+          </div>
+          )} 
         </div>
-      </div>
+      </main>
     </div>
   )
 }

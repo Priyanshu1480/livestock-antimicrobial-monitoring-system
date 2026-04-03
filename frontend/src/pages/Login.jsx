@@ -88,55 +88,99 @@ function Login() {
   const roleLabel = selectedRole ? ROLE_LABEL[selectedRole] || selectedRole.toUpperCase() : "Your Role"
 
   const roleBackgroundMap = {
-    farmer: 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    vet: 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    admin: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
+    farmer: 'login-bg-farmer',
+    vet: 'login-bg-vet',
+    admin: 'login-bg-admin'
   }
 
-  const backgroundImage = roleBackgroundMap[selectedRole] || 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
+  const bgClass = selectedRole ? roleBackgroundMap[selectedRole.toLowerCase()] : 'bg-[#0a0a0a]'
 
   return (
-    <div className="h-screen text-slate-100 p-4 flex items-center justify-center" style={{
-      backgroundImage: `url(${backgroundImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center center',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'scroll',
-      filter: 'brightness(1.1) saturate(1.2)',
-      willChange: 'transform',
-      animation: 'backgroundFloat 18s linear infinite'
-    }}>
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/30 via-blue-900/30 to-slate-950/30 backdrop-blur-sm" aria-hidden="true" />
-      <div className="relative w-full max-w-md rounded-3xl border border-cyan-300/20 bg-gradient-to-br from-slate-900/70 via-slate-800/70 to-indigo-900/70 p-6 backdrop-blur-xl shadow-[0_18px_40px_rgba(0,0,0,0.45)] transition-all duration-300 hover:shadow-[0_20px_50px_rgba(8,145,178,0.45)]">
-        <div className="mb-4 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-cyan-500/20 px-3 py-1 text-xs text-cyan-200">🔒 Logging in as {roleLabel}</div>
-          <h1 className="text-3xl font-bold mt-3">Secure Login</h1>
-          <p className="text-slate-300 text-sm mt-1">Login to continue as {roleLabel}</p>
+    <div className={`min-h-screen text-slate-100 p-4 flex flex-col items-center justify-center relative overflow-hidden ${bgClass}`}>
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/4 w-[40%] h-[40%] rounded-full bg-teal-900/10 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[30%] h-[30%] rounded-full bg-indigo-900/10 blur-[100px] pointer-events-none" />
+      
+      <div className="relative w-full max-w-sm rounded-[2rem] border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-2xl shadow-2xl transition-all duration-300">
+        <button 
+          onClick={() => navigate("/")}
+          className="absolute top-6 left-6 p-2 rounded-full bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all group z-20"
+          title="Back to Home"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-0.5 transition-transform"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 text-xs text-teal-300 font-medium tracking-wide mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span> {roleLabel} Login
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Welcome back</h1>
+          <p className="text-slate-400 text-sm mt-2">Sign in to your account to continue</p>
         </div>
-        <button onClick={() => { localStorage.removeItem("selectedRole"); navigate("/") }} className="mb-3 px-3 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-green-400 via-cyan-400 to-blue-500 text-slate-900 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_16px_rgba(0,255,200,0.4)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200/60">← Back to Home</button>
-        <form onSubmit={doLogin} className="space-y-3">
-          <div className="rounded-xl border border-slate-600 bg-slate-900 p-2 transition focus-within:border-cyan-400">
-            <label className="text-xs uppercase tracking-wide text-cyan-300 font-semibold">User ID</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. FARMER" className="mt-1 w-full bg-transparent outline-none text-sm text-white border border-cyan-300/20 bg-cyan-500/5 px-2 py-1" required />
-            {selectedRole && <div className="mt-1 text-[11px] text-slate-400">Auto-filled from selected role: {ROLE_LABEL[selectedRole] || selectedRole.toUpperCase()}</div>}
+
+        <form onSubmit={doLogin} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-400">User ID</label>
+            <div className="relative">
+               <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. FARMER" className="w-full rounded-lg border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-sm text-white transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 placeholder-slate-500" required />
+            </div>
+            {selectedRole && <div className="text-[11px] text-slate-500 mt-1">Auto-filled: {ROLE_LABEL[selectedRole] || selectedRole}</div>}
           </div>
 
-          <div className="relative rounded-xl border border-slate-600 bg-slate-900 p-2 transition focus-within:border-cyan-400">
-            <label className="text-xs uppercase tracking-wide text-cyan-300 font-semibold">Password</label>
-            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="********" className="mt-1 w-full bg-transparent outline-none text-sm text-white pr-10" required />
-            <button type="button" onClick={() => setShowPassword((p) => !p)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-cyan-400 text-sm">{showPassword ? "🙈" : "👁️"}</button>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-400">Password</label>
+            <div className="relative">
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-lg border border-slate-700 bg-slate-900/50 px-4 py-2.5 text-sm text-white transition focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 placeholder-slate-500 pr-10" required />
+              <button type="button" onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-sm transition">
+                 {showPassword ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>}
+              </button>
+            </div>
           </div>
-          <button
-            disabled={loading}
-            className="w-full rounded-xl bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 px-4 py-2 text-sm font-bold text-slate-900 uppercase tracking-wide shadow-lg shadow-cyan-400/30 transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_24px_rgba(0,245,255,0.45)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <span className="relative inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-white/80 animate-pulse" />
-              {loading ? "Validating..." : "Login"}
-            </span>
-          </button>
-          {error && <div className="text-red-300 text-xs animate-pulse">{error}</div>}
+          
+          <div className="pt-2">
+            <Button
+              type="submit"
+              disabled={loading}
+              variant="primary"
+              className="w-full"
+            >
+              {loading ? "Sign In" : "Sign In"}
+            </Button>
+          </div>
+          
+          {error && <div className="text-rose-400 text-xs text-center border border-rose-500/20 bg-rose-500/10 p-2 rounded-lg">{error}</div>}
         </form>
+
+        {selectedRole && (
+          <div className="mt-6 pt-5 border-t border-slate-800">
+            <div className="text-[13px] font-semibold text-slate-300 mb-2">Features:</div>
+            <ul className="space-y-1.5 text-[13px] text-slate-400/80 list-disc pl-4 marker:text-slate-600">
+              {selectedRole.toLowerCase() === "farmer" && (
+                <>
+                  <li>Record livestock treatment details</li>
+                  <li>Select animal, disease, and symptoms</li>
+                  <li>Receive suggested dosage guidance</li>
+                  <li>Track submitted treatment history</li>
+                </>
+              )}
+              {selectedRole.toLowerCase() === "vet" && (
+                <>
+                  <li>Review farmer-submitted records</li>
+                  <li>Approve or reject treatments</li>
+                  <li>Add expert notes and recommendations</li>
+                  <li>Monitor violations and risk levels</li>
+                </>
+              )}
+              {selectedRole.toLowerCase() === "admin" && (
+                <>
+                  <li>View system-wide records and analytics</li>
+                  <li>Monitor compliance and violations</li>
+                  <li>Analyze trends across farms and regions</li>
+                  <li>Generate reports and insights</li>
+                </>
+              )}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 function Navbar({ role, homePath, onLogout, onThemeToggle, isDark }) {
@@ -17,14 +17,36 @@ function Navbar({ role, homePath, onLogout, onThemeToggle, isDark }) {
   useEffect(() => {
     const loadNotifications = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/records")
+        const url = (import.meta.env.VITE_API_URL || "http://localhost:5000") + "/api/records"
+        const res = await fetch(url)
         const data = await res.json()
-        const vio = data.filter((r) => Number(r.residue_value) > Number(r.MRL_limit) || (r.withdrawal_end_date && new Date().toISOString().slice(0, 10) < r.withdrawal_end_date) || r.compliance_status?.toLowerCase() === "violation" || r.status === "flagged")
-        const notes = vio.slice(0, 8).map((r, i) => ({ id: `${r.record_id}-${i}`, title: `${r.record_id} Violation`, message: `${r.drug_name || "Drug"} residue high`, read: false }))
+        
+        let notes = []
+        if (role === "Admin") {
+          const vio = data.filter(r => r.mrl_status && r.mrl_status !== "Safe" && r.mrl_status !== "safe")
+          notes = vio.slice(0, 8).map((r, i) => ({ id: `admin-${r.record_id}-${i}`, title: `Violation Alert 🚨`, message: `${r.farm_id}: ${r.drug_name} residue exceeded MRL`, read: false }))
+        } else if (role === "Veterinarian") {
+          const pen = data.filter(r => {
+             const stat = (r.status || r.vet_status || r.compliance_status || "").toString().toLowerCase()
+             return stat === "pending" || stat === "not reviewed" || stat === "" || !r.status
+          })
+          notes = pen.slice(0, 8).map((r, i) => ({ id: `vet-${r.record_id}-${i}`, title: `Review Pending 🩺`, message: `Animal ${r.animal_id} at ${r.farm_id} requires review`, read: false }))
+        } else {
+          const rejs = data.filter(r => {
+             const stat = (r.status || r.vet_status || r.compliance_status || "").toString().toLowerCase()
+             return stat === "rejected" || stat === "not safe" || (r.mrl_status && r.mrl_status !== "Safe" && r.mrl_status !== "safe")
+          })
+          notes = rejs.slice(0, 8).map((r, i) => ({ id: `farmer-${r.record_id}-${i}`, title: `Record Flagged ⚠️`, message: `Treatment for ${r.animal_id} was rejected.`, read: false }))
+        }
+
+        if (notes.length === 0) {
+          notes = [{ id: 'sys-ok', title: 'System Status ✅', message: 'No new critical alerts at this time.', read: true }]
+        }
+        
         setNotifications(notes)
-        setUnread(notes.length)
+        setUnread(notes.filter(n => !n.read).length)
       } catch (err) {
-        console.error(err)
+        console.error("Notifications error", err)
       }
     }
     loadNotifications()
@@ -49,31 +71,37 @@ function Navbar({ role, homePath, onLogout, onThemeToggle, isDark }) {
   const timeStr = time.toLocaleTimeString()
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 bg-slate-800 p-3 rounded-2xl shadow text-white border border-white/10">
+    <header className="relative z-50 flex flex-wrap items-center justify-between gap-3 bg-slate-900/50 backdrop-blur-md p-4 rounded-xl border border-slate-800">
       <div>
-        <div className="text-[10px] uppercase tracking-[0.25em] text-cyan-100/80">Antimicrobial Monitoring</div>
-        <div className="text-lg font-semibold tracking-wide">{role} Portal</div>
-        <div className="text-xs text-slate-200 mt-1">Welcome back, {role}</div>
+        <div className="text-[10px] uppercase tracking-widest text-teal-400/80 font-medium">Antimicrobial Monitoring</div>
+        <div className="text-lg font-medium tracking-tight text-white">{role} Portal</div>
+        <div className="text-xs text-slate-400 mt-0.5">Welcome back, {role}</div>
       </div>
 
       <div className="flex items-center gap-2 text-xs relative" ref={ref}>
-        <div className="rounded-full bg-slate-900/60 px-2 py-1 text-slate-100 drop-shadow">{dateStr}&nbsp;{timeStr}</div>
-        <button onClick={onThemeToggle} className="rounded-lg border border-white/30 bg-white/10 px-2 py-1 transition hover:bg-white/20">{isDark ? "☀️ Light" : "🌙 Dark"}</button>
+        <div className="hidden sm:block rounded-full bg-slate-800/80 px-3 py-1.5 text-slate-300 tabular-nums border border-slate-700/50 shadow-inner tracking-wide">{dateStr} {timeStr}</div>
+        <button onClick={onThemeToggle} className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300">{isDark ? "☀️ Light" : "🌙 Dark"}</button>
         <div className="relative">
-          <button onClick={() => setIsOpen((p) => !p)} className="rounded-lg border border-white/30 bg-white/10 px-2 py-1 transition hover:bg-white/20">🔔</button>
-          {unread > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-rose-400 px-1 text-[10px] font-bold">{unread}</span>}
+          <button onClick={() => setIsOpen((p) => !p)} className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300 relative">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            {unread > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-rose-500 ring-2 ring-slate-900 w-3.5 h-3.5 flex items-center justify-center text-[8px] font-bold text-white">{unread}</span>}
+          </button>
+          
           {isOpen && (
-            <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
-              <div className="flex items-center justify-between text-xs text-slate-300"><span>Notifications</span><button onClick={markAllRead} className="text-cyan-300 hover:text-cyan-100">Mark read</button></div>
-              <div className="mt-2 space-y-1 max-h-56 overflow-y-auto">
-                {notifications.length === 0 ? <div className="text-slate-300 text-xs p-2">No notifications.</div> : notifications.map((n) => <div key={n.id} className={`rounded-lg p-2 text-xs ${n.read ? "bg-slate-800" : "bg-cyan-900/20 border border-cyan-400/30"}`}><div className="font-semibold">{n.title}</div><div>{n.message}</div></div>)}
+            <div className="absolute right-0 z-50 mt-3 w-80 rounded-xl border border-slate-700/60 bg-slate-900/95 backdrop-blur-xl p-3 shadow-2xl origin-top-right transition-all">
+              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-slate-800 mb-2">
+                <span className="font-medium text-slate-200">Notifications</span>
+                <button onClick={markAllRead} className="text-teal-400 hover:text-teal-300 transition">Mark as read</button>
+              </div>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                {notifications.length === 0 ? <div className="text-slate-400 text-xs p-3 text-center">No notifications right now.</div> : notifications.map((n) => <div key={n.id} className={`rounded-lg p-3 text-xs transition duration-200 ${n.read ? "bg-slate-800/40 text-slate-400" : "bg-teal-900/10 border border-teal-500/20 text-slate-200"}`}><div className="font-medium mb-0.5 flex items-center gap-1.5">{!n.read && <span className="w-1.5 h-1.5 rounded-full bg-teal-400 block" />} {n.title}</div><div className={n.read ? "text-slate-500" : "text-slate-400 ml-3"}>{n.message}</div></div>)}
               </div>
             </div>
           )}
         </div>
 
-        <button onClick={() => { localStorage.removeItem("selectedRole"); nav("/") }} className="rounded-lg border border-white/30 bg-white/10 px-2 py-1 transition hover:bg-white/20">Home</button>
-        <button onClick={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); onLogout() }} className="rounded-lg border border-white/30 bg-white/10 px-2 py-1 transition hover:bg-red-500/80">Logout</button>
+        <button onClick={() => { localStorage.removeItem("selectedRole"); nav("/") }} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300">Home</button>
+        <button onClick={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); onLogout() }} className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-rose-400 transition hover:bg-rose-500/20 border border-rose-500/20">Sign Out</button>
       </div>
     </header>
   )
