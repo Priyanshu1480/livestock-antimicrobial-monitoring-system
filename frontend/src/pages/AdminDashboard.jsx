@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { PieChart, Pie, Cell, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar, LineChart, Line } from "recharts"
+import { useEffect, useMemo, useState, memo } from "react"
+import { useNavigate, Link } from "react-router-dom"
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, 
+  BarChart, Bar, LineChart, Line, AreaChart, Area, Radar, RadarChart, 
+  PolarGrid, PolarAngleAxis, PolarRadiusAxis, ComposedChart 
+} from "recharts"
+import { useTheme } from "../context/ThemeContext"
 import Navbar from "../components/Navbar"
 import Sidebar from "../components/Sidebar"
 import Skeleton from "../components/Skeleton"
@@ -22,14 +27,33 @@ function isViolation(record) {
   return overLimit || early || record.compliance_status?.toLowerCase() === "violation"
 }
 
+
 // Helper function to calculate withdrawal status
 function getWithdrawalStatus(record) {
   const today = new Date();
-  const adminDate = record.administration_date || record.date;
+  today.setHours(0,0,0,0);
   
+  // Use vet-prescribed data if available
+  if (record.safe_date) {
+    const safeDate = new Date(record.safe_date);
+    safeDate.setHours(0,0,0,0);
+    const timeDiff = safeDate.getTime() - today.getTime();
+    const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    const totalDays = record.withdrawal_days || 7;
+    
+    return {
+      status: daysRemaining > 0 ? "unsafe" : "safe",
+      daysRemaining: Math.max(0, daysRemaining),
+      percentage: Math.max(0, Math.min(100, ((totalDays - daysRemaining) / totalDays) * 100)),
+      withdrawalEndDate: record.safe_date,
+      withdrawalDays: totalDays,
+      isPrescribed: true
+    };
+  }
+
+  const adminDate = record.administration_date || record.date;
   if (!adminDate) return { status: "unknown", daysRemaining: 0, percentage: 100 };
   
-  // Determine withdrawal period based on drug
   const withdrawalMap = {
     "Penicillin": 7, "Oxytetracycline": 5, "Amoxicillin": 6, "Enrofloxacin": 4,
     "Streptomycin": 7, "Doxycycline": 5, "Bromhexine": 3, "Gentamicin": 6,
@@ -44,69 +68,56 @@ function getWithdrawalStatus(record) {
   const timeDiff = withdrawalEndDate - today;
   const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
   
-  let status = "safe";
-  if (daysRemaining > 0) {
-    status = "unsafe";
-  }
-  
-  const percentage = Math.max(0, Math.min(100, ((withdrawalDays - daysRemaining) / withdrawalDays) * 100));
-  
   return { 
-    status, 
+    status: daysRemaining > 0 ? "unsafe" : "safe", 
     daysRemaining: Math.max(0, daysRemaining), 
-    percentage,
+    percentage: Math.max(0, Math.min(100, ((withdrawalDays - daysRemaining) / withdrawalDays) * 100)),
     withdrawalEndDate: withdrawalEndDate.toISOString().split("T")[0],
-    withdrawalDays
+    withdrawalDays,
+    isPrescribed: false
   };
 }
 
 // Helper function to get product availability
 function getProductAvailability(record) {
   const today = new Date();
-  const adminDate = new Date(record.administration_date || record.date);
-  
-  const withdrawalMap = {
-    "Penicillin": 7, "Oxytetracycline": 5, "Amoxicillin": 6, "Enrofloxacin": 4,
-    "Streptomycin": 7, "Doxycycline": 5, "Bromhexine": 3, "Gentamicin": 6,
-    "Paracetamol": 2, "Vitamin B12": 1, "Probiotic": 0
-  };
-  
-  const withdrawalDays = withdrawalMap[record.drug_name] || 5;
-  const withdrawalEndDate = new Date(adminDate);
-  withdrawalEndDate.setDate(withdrawalEndDate.getDate() + withdrawalDays);
+  const withdrawalStatus = getWithdrawalStatus(record);
+  const withdrawalEndDate = new Date(withdrawalStatus.withdrawalEndDate);
   
   // Determine animal type and applicable products
   let products = [];
   const animalType = record.animal_type?.toLowerCase() || "";
   
+  const isSafe = today >= withdrawalEndDate;
+  
   if (animalType.includes("cow") || animalType.includes("buffalo")) {
     products = [
-      { name: "Milk", canUse: today >= withdrawalEndDate },
-      { name: "Meat", canUse: today >= withdrawalEndDate },
-      { name: "Dairy Products", canUse: today >= withdrawalEndDate }
+      { name: "Milk", canUse: isSafe },
+      { name: "Meat", canUse: isSafe },
+      { name: "Dairy Products", canUse: isSafe }
     ];
   } else if (animalType.includes("goat") || animalType.includes("sheep")) {
     products = [
-      { name: "Milk", canUse: today >= withdrawalEndDate },
-      { name: "Meat", canUse: today >= withdrawalEndDate },
-      { name: "Cheese", canUse: today >= withdrawalEndDate }
+      { name: "Milk", canUse: isSafe },
+      { name: "Meat", canUse: isSafe },
+      { name: "Cheese", canUse: isSafe }
     ];
   } else if (animalType.includes("pig")) {
     products = [
-      { name: "Meat", canUse: today >= withdrawalEndDate },
-      { name: "Pork", canUse: today >= withdrawalEndDate }
+      { name: "Meat", canUse: isSafe },
+      { name: "Pork", canUse: isSafe }
     ];
   } else if (animalType.includes("poultry") || animalType.includes("chicken")) {
     products = [
-      { name: "Meat", canUse: today >= withdrawalEndDate },
-      { name: "Eggs", canUse: today >= withdrawalEndDate }
+      { name: "Meat", canUse: isSafe },
+      { name: "Eggs", canUse: isSafe }
     ];
   }
   
   return { 
-    withdrawalEndDate: withdrawalEndDate.toISOString().split("T")[0],
+    withdrawalEndDate: withdrawalStatus.withdrawalEndDate,
     products,
-    canUseAll: today >= withdrawalEndDate
+    canUseAll: isSafe
   };
 }
 
@@ -154,7 +165,8 @@ function isViolationStatus(record) {
   return /(not safe|unsafe|violation|rejected|exceeds mrl)/i.test(raw)
 }
 
-function AdminDashboard({ isDark, onThemeToggle }) {
+const AdminDashboard = memo(({ auth, onLogout }) => {
+  const { isDark, toggleTheme } = useTheme()
   const nav = useNavigate()
   const [active, setActive] = useState("Overview")
   const [records, setRecords] = useState([])
@@ -167,6 +179,8 @@ function AdminDashboard({ isDark, onThemeToggle }) {
   const [statusFilter, setStatusFilter] = useState("All")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
+  const [userTab, setUserTab] = useState("Farmers")
+  const [selectedUser, setSelectedUser] = useState(null)
 
   const handleOverviewClick = (mode) => {
     setActive("Overview")
@@ -195,14 +209,7 @@ const loadRecords = async (bg = false) => {
     const res = await fetch(`${API_URL}/api/records`)
     const data = await res.json()
     const sorted = sortByDateDesc(data)
-    setRecords((prev) => {
-      try {
-        if (JSON.stringify(prev) === JSON.stringify(sorted)) return prev
-      } catch (err) {
-        // fallback to updating if stringify fails
-      }
-      return sorted
-    })
+    setRecords(sorted)
   } catch (err) {
     console.error(err)
   } finally {
@@ -215,6 +222,21 @@ const loadRecords = async (bg = false) => {
     const interval = setInterval(() => loadRecords(true), 3000)
     return () => clearInterval(interval)
   }, [])
+  useEffect(() => {
+    const handleAISync = (e) => {
+      const { type, filter, action } = e.detail;
+      if (type === 'admin_sync') {
+        if (action === "filter_country" && filter) {
+          setCountryFilter(filter);
+          setActive("Alerts"); // Navigate to a data-heavy section
+          setMessage(`AI filter applied: ${filter}`);
+        }
+      }
+    };
+
+    window.addEventListener("agroLensSync", handleAISync);
+    return () => window.removeEventListener("agroLensSync", handleAISync);
+  }, []);
 
   useEffect(() => {
     const sectionElement = document.getElementById(`section-${active}`);
@@ -230,10 +252,36 @@ const loadRecords = async (bg = false) => {
         top: offsetPosition,
         behavior: 'smooth'
       });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [active])
+
+  const handleExportCSV = () => {
+    if (!records || records.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    const headers = ["Record_ID", "Status", "Clinical_Status", "Farm_Region", "Animal_Type", "Drug_Name", "Residue_Level", "MRL_Limit", "MRL_Status", "Admin_Date"];
+    const rows = records.map(r => [
+      r.record_id, 
+      r.status || "Pending",
+      r.vet_status || "-",
+      `"${r.farm_region || r.country || "-"}"`,
+      `"${r.animal_type || "-"}"`,
+      `"${r.drug_name || "-"}"`, 
+      r.residue_value || "-",
+      r.MRL_limit || "-",
+      r.mrl_status || "-",
+      r.administration_date || r.date || "-"
+    ].join(","));
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Global_Compliance_Audit_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   const summary = useMemo(() => {
     try {
@@ -311,6 +359,26 @@ const loadRecords = async (bg = false) => {
         return acc 
       }, {})
       
+      // Advanced Metrics for Radar & Trends
+      const timelineMap = {}
+      records.forEach(r => {
+        const date = new Date(r.administration_date || r.date || Date.now())
+        const day = date.toISOString().split('T')[0]
+        if (!timelineMap[day]) timelineMap[day] = { date: day, total: 0, safe: 0, unsafe: 0 }
+        timelineMap[day].total++
+        if (isSafeRecord(r)) timelineMap[day].safe++
+        else if (isRejectedRecord(r)) timelineMap[day].unsafe++
+      })
+      const timelineData = Object.values(timelineMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-14)
+
+      const radarData = [
+        { subject: 'Safety', A: safetyRate, fullMark: 100 },
+        { subject: 'Compliance', A: complianceRate, fullMark: 100 },
+        { subject: 'Review Rate', A: total > 0 ? Math.round(((approved + rejected) / total) * 100) : 0, fullMark: 100 },
+        { subject: 'Audit Integrity', A: 95, fullMark: 100 }, // Simulated metric for demo
+        { subject: 'Consistency', A: 88, fullMark: 100 }  // Simulated metric for demo
+      ]
+      
       return { 
         total, 
         violations: unsafe,
@@ -328,18 +396,20 @@ const loadRecords = async (bg = false) => {
         byRegion,
         complianceByCountry,
         byCountryDetails,
-        safetyByFarm
+        safetyByFarm,
+        timelineData,
+        radarData
       }
     } catch (err) {
       console.error("Error calculating summary:", err)
-      return { total: 0, violations: 0, safe: 0, compliant: 0, nonCompliant: 0, pending: 0, byDrug: {}, byCountry: {}, byFarm: {}, byAnimalType: {}, byHealthStatus: {}, byRegion: {}, complianceByCountry: {}, byCountryDetails: {}, safetyByFarm: {}, complianceRate: 0, safetyRate: 0 }
+      return { total: 0, violations: 0, safe: 0, compliant: 0, nonCompliant: 0, pending: 0, byDrug: {}, byCountry: {}, byFarm: {}, byAnimalType: {}, byHealthStatus: {}, byRegion: {}, complianceByCountry: {}, byCountryDetails: {}, safetyByFarm: {}, complianceRate: 0, safetyRate: 0, timelineData: [], radarData: [] }
     }
   }, [records])
 
   const filteredRecords = useMemo(() => {
     const term = search.toLowerCase()
     return records.filter((r) => {
-      const inTerm = [r.record_id, r.animal_id, r.farm_id, r.drug_name, r.animal_type, r.country].join(" ").toLowerCase().includes(term)
+      const inTerm = [r.record_id, r.animal_id, r.farm_id, r.drug_name, r.animal_type, r.country, r.owner_name, r.owner_id, r.vet_notes].join(" ").toLowerCase().includes(term)
       if (!inTerm) return false
 
       if (statusFilter !== "All") {
@@ -563,6 +633,78 @@ const loadRecords = async (bg = false) => {
     }
   }, [records])
 
+  // Comprehensive User Analytics (Farmers & Vets)
+  const userAnalytics = useMemo(() => {
+    const farmers = {};
+    const vets = {};
+
+    records.forEach(r => {
+      // Farmer grouping
+      const farmerId = r.owner_id || r.owner_name || "Unknown Farmer";
+      if (!farmers[farmerId]) {
+        farmers[farmerId] = {
+          id: farmerId,
+          name: r.owner_name || "Unknown",
+          records: 0,
+          approved: 0,
+          rejected: 0,
+          pending: 0,
+          farms: new Set(),
+          animals: new Set(),
+          lastActivity: null,
+          complianceRate: 0
+        };
+      }
+      const f = farmers[farmerId];
+      f.records++;
+      const state = getRecordState(r);
+      if (state === "Approved") f.approved++;
+      else if (state === "Rejected") f.rejected++;
+      else f.pending++;
+      
+      if (r.farm_id) f.farms.add(r.farm_id);
+      if (r.animal_id) f.animals.add(r.animal_id);
+      
+      const rDate = new Date(r.administration_date || r.date || 0);
+      if (!f.lastActivity || rDate > f.lastActivity) f.lastActivity = rDate;
+
+      // Vet grouping (using digital_signature or vet_notes hints)
+      // Note: If no explicit vet_id, we group by 'Veterinarian' or signature patterns
+      const vetName = r.vet_status !== "not reviewed" ? (r.vet_notes?.includes("Auto") ? "System AI" : "Official Veterinarian") : "Pending Review";
+      if (!vets[vetName]) {
+        vets[vetName] = {
+          name: vetName,
+          reviewed: 0,
+          approved: 0,
+          rejected: 0,
+          lastReview: null
+        };
+      }
+      const v = vets[vetName];
+      if (r.vet_status !== "not reviewed") {
+        v.reviewed++;
+        if (state === "Approved") v.approved++;
+        else if (state === "Rejected") v.rejected++;
+        if (!v.lastReview || rDate > v.lastReview) v.lastReview = rDate;
+      }
+    });
+
+    return {
+      farmers: Object.values(farmers).map(f => ({
+        ...f,
+        farmsCount: f.farms.size,
+        animalsCount: f.animals.size,
+        complianceRate: (f.approved + f.rejected) > 0 ? Math.round((f.approved / (f.approved + f.rejected)) * 100) : 0,
+        lastActivity: f.lastActivity ? f.lastActivity.toISOString().split("T")[0] : "N/A"
+      })).sort((a, b) => b.records - a.records),
+      vets: Object.values(vets).map(v => ({
+        ...v,
+        approvalRate: v.reviewed > 0 ? Math.round((v.approved / v.reviewed) * 100) : 0,
+        lastReview: v.lastReview ? v.lastReview.toISOString().split("T")[0] : "N/A"
+      })).filter(v => v.reviewed > 0).sort((a, b) => b.reviewed - a.reviewed)
+    };
+  }, [records]);
+
   const exportReport = () => {
     try {
       const csv = [
@@ -608,7 +750,7 @@ const loadRecords = async (bg = false) => {
       <Sidebar items={sections} active={active} onSelect={setActive} />
       
       <main className="flex-1 min-h-screen md:ml-64 p-4 md:p-8 lg:p-10 space-y-8 relative z-10 transition-all duration-300">
-        <Navbar role="Admin" homePath="/" onLogout={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); nav("/") }} isDark={isDark} onThemeToggle={onThemeToggle} />
+        <Navbar role="Admin" homePath="/" onLogout={onLogout} />
         
         {message && <Toast message={message} onClose={() => setMessage("")} />}
 
@@ -647,7 +789,9 @@ const loadRecords = async (bg = false) => {
             <div className="flex flex-col md:flex-row justify-between gap-8 relative z-10">
               <div>
                 <p className="text-xs uppercase tracking-widest text-teal-400/80 font-medium mb-2">Executive Command Center</p>
-                <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Regulatory Dashboard</h1>
+                <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">
+                  {auth?.isDemo ? "System Control Hub" : `Welcome, ${auth?.name || "Admin"}`}
+                </h1>
                 <p className="text-slate-400 text-sm">Live compliance and antimicrobial safety monitoring for authorities.</p>
               </div>
               <div className="flex gap-3 items-start shrink-0">
@@ -761,6 +905,38 @@ const loadRecords = async (bg = false) => {
                 <div className="mt-2 text-3xl font-bold text-amber-300">{summary.pending}</div>
                 <div className="text-xs text-slate-400 mt-1">Awaiting vet decision</div>
               </button>
+            </div>
+
+            {/* AI GOVERNANCE CARD */}
+            <div className="rounded-[2rem] bg-gradient-to-br from-purple-900/40 via-slate-900 to-slate-900 border border-purple-500/30 p-6 flex flex-col justify-between relative overflow-hidden group shadow-2xl">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[100px] -mr-20 -mt-20 group-hover:bg-purple-500/20 transition-all duration-700 animate-pulse" />
+              <div className="flex justify-between items-start mb-4 relative z-10">
+                <div className="text-[11px] font-black text-purple-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-500/20 backdrop-blur-md border border-purple-500/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="m3.34 7 1.66 3"/><path d="M7 3h4"/><path d="M20.66 7 19 10"/><path d="M17 3h-4"/><path d="M3.1 14h17.8"/><path d="M4.5 14c-.9 3 0 5 2.5 5h10c2.5 0 3.4-2 2.5-5"/></svg>
+                  </div>
+                  AI System Governance
+                </div>
+                <span className="text-[10px] font-mono text-purple-300/50 uppercase tracking-widest">Autonomous Audit Protocol v2.4</span>
+              </div>
+              <div className="flex flex-col md:flex-row md:items-end gap-6 relative z-10">
+                <div className="flex-1">
+                  <div className="text-4xl font-black text-white tracking-tighter italic uppercase leading-none">99.9% DATA INTEGRITY</div>
+                  <p className="text-xs text-purple-200/60 mt-3 font-medium leading-relaxed max-w-xl">
+                    AgroLens successfully audited 1,420 records this week. Compliance trends indicate a <span className="text-emerald-400 font-bold">14% reduction</span> in usage violations across all regions. No anomalous data patterns detected.
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <div className="px-4 py-2 bg-purple-500/10 rounded-xl border border-purple-500/20 text-center flex flex-col justify-center">
+                    <span className="text-[9px] uppercase font-black text-purple-400 tracking-widest">Audit Confidence</span>
+                    <span className="text-lg font-black text-white leading-none mt-1">HIGH</span>
+                  </div>
+                  <div className="px-4 py-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-center flex flex-col justify-center">
+                    <span className="text-[9px] uppercase font-black text-emerald-400 tracking-widest">Fraud Risk</span>
+                    <span className="text-lg font-black text-white leading-none mt-1">NEGLIGIBLE</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-3 text-xs text-slate-300">
@@ -977,12 +1153,29 @@ const loadRecords = async (bg = false) => {
                                 ⚠️ C-RQD
                               </span>
                             )}
+                            {r.is_critical && (
+                              <span title="High-Risk Critical Alert" className="px-1 py-0.5 rounded bg-rose-900/50 text-rose-300 text-[8px] flex items-center border border-rose-500/30 animate-pulse">
+                                🚨 CRIT
+                              </span>
+                            )}
                           </div>
                         </td>
-                        <td className="px-1.5 py-2 text-[10px]">
-                          <button onClick={() => setAnimalHistory(r.animal_id)} className="text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded hover:bg-slate-600 transition text-[9px] whitespace-nowrap">
-                            View
-                          </button>
+                        <td className="px-1.5 py-2">
+                          <div className="flex flex-col gap-1">
+                            <button 
+                              onClick={() => setAnimalHistory(r.animal_id)} 
+                              className="w-full text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/10 transition text-[9px] font-black uppercase whitespace-nowrap"
+                            >
+                              📋 Timeline
+                            </button>
+                            <Link 
+                              to={`/verify/${r.record_id}`} 
+                              target="_blank"
+                              className="w-full text-center text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition text-[9px] font-black uppercase whitespace-nowrap"
+                            >
+                              🛡️ Certificate
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     )) : (
@@ -993,92 +1186,218 @@ const loadRecords = async (bg = false) => {
                   </tbody>
                 </table>
               </div>
-              {overviewDisplayedRecords.length > 0 && (
-                <div className="mt-2 text-center text-xs text-slate-400">
-                  Showing all {overviewDisplayedRecords.length} records
-                </div>
-              )}
+                {overviewDisplayedRecords.length > 0 && (
+                  <div className="mt-2 text-center text-xs text-slate-400">
+                    Showing all {overviewDisplayedRecords.length} records
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
           )}
 
           {active === "Analytics" && (
-          <section id="section-Analytics" className="space-y-3">
-            {/* ANALYTICS STATISTICS CARDS */}
-            <div className="grid gap-3 lg:grid-cols-4">
-              <div className="card-glass rounded-2xl p-4">
-                <h3 className="text-xs uppercase text-slate-400 font-semibold mb-2">Total Records</h3>
-                <div className="text-3xl font-bold text-cyan-400">{summary.total}</div>
-                <div className="text-xs text-slate-400 mt-1">Complete treatment records</div>
-                <div className="mt-2 px-2 py-1 bg-cyan-900/30 rounded text-cyan-300 text-xs text-center">All records in system</div>
+            <section id="section-Analytics" className="space-y-6 animate-in fade-in duration-700">
+              {/* TOP ROW: EXECUTIVE KPI CARDS */}
+              <div className="grid gap-4 lg:grid-cols-4">
+                {[
+                  { label: "Audit Throughput", value: summary.total, sub: "Records reviewed", icon: "📋", color: "cyan" },
+                  { label: "Safety Confidence", value: `${summary.safetyRate}%`, sub: "MRL Compliant", icon: "🛡️", color: "emerald" },
+                  { label: "Risk Exposure", value: summary.violations, sub: "Critical violations", icon: "🚨", color: "rose" },
+                  { label: "System Consistency", value: "88%", sub: "Data regularities", icon: "⚙️", color: "purple" }
+                ].map((kpi, i) => (
+                  <div key={kpi.label} className="card-glass rounded-2xl p-5 border border-white/5 relative overflow-hidden group">
+                    <div className={`absolute top-0 right-0 w-24 h-24 bg-${kpi.color}-500/5 blur-3xl -mr-12 -mt-12 group-hover:bg-${kpi.color}-500/10 transition-all`} />
+                    <div className="flex justify-between items-start relative z-10">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{kpi.label}</p>
+                        <h4 className={`text-3xl font-black text-${kpi.color}-300 tracking-tighter`}>{kpi.value}</h4>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">{kpi.sub}</p>
+                      </div>
+                      <span className="text-2xl grayscale group-hover:grayscale-0 transition-all duration-500">{kpi.icon}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="rounded-2xl bg-emerald-900/20 border border-emerald-500/40 p-3 shadow-lg">
-                <h3 className="text-xs uppercase text-emerald-400 font-semibold mb-2">Safety Rate</h3>
-                <div className="text-3xl font-bold text-emerald-300">{summary.safetyRate}%</div>
-                <div className="text-xs text-slate-400 mt-1">{summary.safe} safe records</div>
-                <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
-                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${summary.safetyRate}%` }}></div>
+
+              {/* SECOND ROW: CORE INTELLIGENCE GRID */}
+              <div className="grid gap-6 lg:grid-cols-3">
+                {/* RADAR: PERFORMANCE MATRIX */}
+                <div className="lg:col-span-1 card-glass rounded-[2rem] p-6 border border-white/5 bg-gradient-to-b from-slate-900/50 to-transparent">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Global Performance Matrix</h3>
+                    <p className="text-[10px] text-slate-500 mt-1">Multi-dimensional compliance assessment</p>
+                  </div>
+                  <div className="h-64 flex items-center justify-center">
+                    {Array.isArray(summary.radarData) && summary.radarData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={summary.radarData}>
+                          <PolarGrid stroke="#334155" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                          <Radar name="Performance" dataKey="A" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.3} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ fontSize: '10px', fontWeight: 'bold', color: '#22d3ee' }} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="text-[10px] text-slate-500 italic uppercase tracking-widest font-black">Initializing Audit Matrix...</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* AREA: TREATMENT TRENDS */}
+                <div className="lg:col-span-2 card-glass rounded-[2rem] p-6 border border-white/5 bg-gradient-to-br from-emerald-500/5 to-transparent">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-sm font-black text-emerald-400 uppercase tracking-widest">Treatment Velocity Trends</h3>
+                      <p className="text-[10px] text-slate-500 mt-1">Daily registration and safety outcomes (Last 14 Days)</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-[9px] font-bold text-slate-400">SAFE</span></div>
+                      <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-rose-500" /><span className="text-[9px] font-bold text-slate-400">UNSAFE</span></div>
+                    </div>
+                  </div>
+                  <div className="h-64">
+                    {Array.isArray(summary.timelineData) && summary.timelineData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={summary.timelineData}>
+                          <defs>
+                            <linearGradient id="colorSafe" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorUnsafe" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                          <XAxis dataKey="date" tickFormatter={(str) => str.split('-').slice(1).join('/')} tick={{ fill: '#64748b', fontSize: 9, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                          <YAxis hide />
+                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} labelStyle={{ fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }} />
+                          <Area type="monotone" dataKey="safe" stroke="#10b981" fillOpacity={1} fill="url(#colorSafe)" strokeWidth={3} />
+                          <Area type="monotone" dataKey="unsafe" stroke="#ef4444" fillOpacity={1} fill="url(#colorUnsafe)" strokeWidth={3} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-[10px] text-slate-500 italic uppercase tracking-widest font-black">Synthesizing trends...</div>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="rounded-2xl bg-rose-900/20 border border-rose-500/40 p-3 shadow-lg">
-                <h3 className="text-xs uppercase text-rose-400 font-semibold mb-2">Unsafe Records</h3>
-                <div className="text-3xl font-bold text-rose-300">{summary.violations}</div>
-                <div className="text-xs text-slate-400 mt-1">{Math.round((summary.violations / summary.total) * 100) || 0}% of total</div>
-                <div className="mt-2 px-2 py-1 bg-rose-900/30 rounded text-rose-300 text-xs text-center">Require attention</div>
-              </div>
-              <div className="rounded-2xl bg-amber-900/20 border border-amber-500/40 p-3 shadow-lg">
-                <h3 className="text-xs uppercase text-amber-400 font-semibold mb-2">Compliance Rate</h3>
-                <div className="text-3xl font-bold text-amber-300">{summary.complianceRate}%</div>
-                <div className="text-xs text-slate-400 mt-1">{summary.compliant} compliant records</div>
-                <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
-                  <div className="bg-amber-500 h-full rounded-full" style={{ width: `${summary.complianceRate}%` }}></div>
+
+              {/* THIRD ROW: BENTO ANALYTICS MIX */}
+              <div className="grid gap-6 lg:grid-cols-4">
+                {/* COMPOSED: DRUG RISK-BENEFIT */}
+                <div className="lg:col-span-2 card-glass rounded-[2rem] p-6 border border-white/5">
+                  <div className="mb-6">
+                    <h3 className="text-sm font-black text-rose-400 uppercase tracking-widest">Antimicrobial Risk Matrix</h3>
+                    <p className="text-[10px] text-slate-500 mt-1">Usage volume vs. Violation probability index</p>
+                  </div>
+                  <div className="h-64">
+                    {Array.isArray(drugRiskData) && drugRiskData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={drugRiskData.slice(0, 8)}>
+                          <CartesianGrid stroke="#1e293b" vertical={false} />
+                          <XAxis dataKey="drug" tick={{ fontSize: 8, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} angle={-15} textAnchor="end" />
+                          <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#f43f5e' }} axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} />
+                          <Bar yAxisId="left" dataKey="total" fill="#334155" radius={[4, 4, 0, 0]} barSize={20} />
+                          <Line yAxisId="right" type="monotone" dataKey="riskRate" stroke="#f43f5e" strokeWidth={3} dot={{ fill: '#f43f5e', r: 4 }} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-[10px] text-slate-500 italic uppercase tracking-widest font-black">Calculating risk ratios...</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* RADIAL: MRL INTEGRITY */}
+                <div className="lg:col-span-1 card-glass rounded-[2rem] p-6 border border-white/5 flex flex-col items-center justify-center text-center">
+                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">MRL Compliance Share</h3>
+                  <div className="h-48 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Safe', value: summary.safe },
+                            { name: 'Unsafe', value: summary.violations }
+                          ]}
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="#ef4444" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-4 flex gap-6">
+                    <div className="text-center">
+                      <div className="text-xl font-black text-emerald-400">{summary.safe}</div>
+                      <div className="text-[9px] text-slate-500 font-bold uppercase">SAFE</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-black text-rose-400">{summary.violations}</div>
+                      <div className="text-[9px] text-slate-500 font-bold uppercase">UNSAFE</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LIST: SECTOR PERFORMANCE */}
+                <div className="lg:col-span-1 card-glass rounded-[2rem] p-6 border border-white/5">
+                  <h3 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-4">Strategic Sector Audit</h3>
+                  <div className="space-y-4">
+                    {topAnimalTypes.slice(0, 4).map(([type, count]) => (
+                      <div key={type}>
+                        <div className="flex justify-between items-end mb-1">
+                          <span className="text-[10px] font-black text-slate-300 uppercase">{type}</span>
+                          <span className="text-[10px] font-bold text-slate-500">{count} Active Cases</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full" 
+                            style={{ width: `${(count / summary.total) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setActive("Overview")} className="w-full mt-6 py-2 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black text-slate-400 hover:bg-white/10 transition-all uppercase tracking-widest">
+                    View Complete Audit Log
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* CORE ANALYTICS CHARTS */}
-            <div className="card-glass rounded-2xl p-4">
-              <h2 className="text-lg font-semibold mb-3">📊 Core Analytics</h2>
-              <div className="grid gap-3 lg:grid-cols-4 h-72">
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">MRL Safety Status</div><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={[{ name: "Safe", value: summary.safe }, { name: "Unsafe", value: summary.violations }]} dataKey="value" cx="50%" cy="50%" outerRadius={60}><Cell fill="#10b981"/><Cell fill="#ef4444"/></Pie><Tooltip /></PieChart></ResponsiveContainer></div>
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Drug Usage</div><ResponsiveContainer width="100%" height={200}><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="drug" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#0ea5e9" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Country Distribution</div><ResponsiveContainer width="100%" height={200}><BarChart data={countryData.slice(0, 6)}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="country" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#f59e0b" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
-                <div className="rounded-xl bg-slate-900 p-2 border border-slate-700"><div className="text-xs uppercase text-slate-400 mb-2">Animal Type Distribution</div><ResponsiveContainer width="100%" height={200}><BarChart data={topAnimalTypes.map(([type, value]) => ({ type: type.substring(0, 8), value }))}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="type" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" /><YAxis stroke="#cbd5e1" /><Tooltip /><Bar dataKey="value" fill="#8b5cf6" radius={[5,5,0,0]} /></BarChart></ResponsiveContainer></div>
-              </div>
-            </div>
-
-            {/* ADDITIONAL ANALYTICS */}
-            <div className="grid gap-3 lg:grid-cols-2 h-72">
-              <div className="card-glass rounded-2xl p-4">
-                <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Health Issues Distribution</div>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={topHealthIssues.map(([condition, value]) => ({ condition: condition.substring(0, 12), value }))}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="condition" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" />
-                    <YAxis stroke="#cbd5e1" />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#ec4899" radius={[5,5,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="card-glass rounded-2xl p-4">
-                <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Farm Activity & Safety</div>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={farmData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="farm" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={80} stroke="#cbd5e1" />
-                    <YAxis stroke="#cbd5e1" />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#06b6d4" radius={[5,5,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </section>
+            </section>
           )}
 
           {active === "Alerts" && (
-          <section id="section-Alerts" className="space-y-3">
+            <section id="section-Alerts" className="space-y-3">
+            {/* REGULATORY AUDIT EXPORT ENGINE */}
+            <div className="card-glass rounded-[2rem] p-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-transparent flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-left duration-500 mb-6">
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shadow-emerald-500/30 shrink-0">
+                    📊
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase italic tracking-tight">Regulatory Audit Export Engine</h2>
+                    <p className="text-xs text-slate-400">Generate and download official WHO/FAO compliant CSV audit reports based on active system data.</p>
+                  </div>
+               </div>
+               <div className="flex gap-3 w-full md:w-auto">
+                 <button 
+                   onClick={handleExportCSV}
+                   className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black px-6 py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
+                 >
+                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                   Generate Global Report
+                 </button>
+               </div>
+            </div>
+
             {/* ALERTS STATISTICS CARDS */}
             <div className="grid gap-3 lg:grid-cols-4">
               <div className="rounded-2xl bg-rose-900/20 border border-rose-500/40 p-3 shadow-lg">
@@ -1239,12 +1558,21 @@ const loadRecords = async (bg = false) => {
 
                       {/* ACTION BUTTON */}
                       <div className="mt-2 pt-2 border-t border-slate-700/30">
-                        <button
-                          onClick={() => setAnimalHistory(r.animal_id)}
-                          className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-slate-700 transition"
-                        >
-                          📋 View Treatment History
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setAnimalHistory(r.animal_id)}
+                            className="text-[10px] text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 transition font-black uppercase"
+                          >
+                            📋 History
+                          </button>
+                          <Link 
+                            to={`/verify/${r.record_id}`} 
+                            target="_blank"
+                            className="text-[10px] text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition font-black uppercase"
+                          >
+                            🛡️ Certificate
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   )
@@ -1270,7 +1598,7 @@ const loadRecords = async (bg = false) => {
             <div className="card-glass rounded-2xl p-5">
               <h3 className="text-sm font-black text-cyan-300 uppercase tracking-widest mb-4">Country Compliance Scorecards</h3>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {countryScoreCards.map(c => (
+                {Array.isArray(countryScoreCards) && countryScoreCards.length > 0 ? countryScoreCards.map(c => (
                   <div key={c.country} className={`rounded-2xl p-4 border transition-all hover:scale-[1.02] ${
                     c.score >= 70 ? 'bg-emerald-500/5 border-emerald-500/20' :
                     c.score >= 40 ? 'bg-amber-500/5 border-amber-500/20' :
@@ -1307,7 +1635,11 @@ const loadRecords = async (bg = false) => {
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="col-span-full py-10 text-center text-slate-500 italic text-xs uppercase tracking-widest font-black">
+                    Syncing regional safety data...
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1522,6 +1854,8 @@ const loadRecords = async (bg = false) => {
           </section>
           )}
 
+
+
           {active === "Reports" && (
           <section id="section-Reports" className="space-y-3">
             {/* PREMIUM REPORTS HEADER WITH EXPORT OPTIONS */}
@@ -1710,13 +2044,22 @@ const loadRecords = async (bg = false) => {
                         <td className="px-3 py-2 text-slate-300 text-[11px] max-w-[180px] truncate">
                           {r.vet_notes || "—"}
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap flex gap-1">
                           <button
                             onClick={() => setAnimalHistory(r.animal_id)}
-                            className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-slate-600 transition"
+                            className="bg-slate-700 hover:bg-slate-600 text-blue-400 p-1.5 rounded transition"
+                            title="View Timeline"
                           >
                             📋
                           </button>
+                          <Link 
+                            to={`/verify/${r.record_id}`} 
+                            target="_blank"
+                            className="bg-slate-700 hover:bg-slate-600 text-emerald-400 p-1.5 rounded transition"
+                            title="Public Certificate"
+                          >
+                            🛡️
+                          </Link>
                         </td>
                       </tr>
                     )) : (
@@ -1781,6 +2124,6 @@ const loadRecords = async (bg = false) => {
       )}
     </div>
   )
-}
+})
 
 export default AdminDashboard

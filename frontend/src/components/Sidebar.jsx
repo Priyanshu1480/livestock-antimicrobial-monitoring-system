@@ -7,7 +7,9 @@ const sectionIcons = {
   Reports: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
   Input: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   "My Records": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
-  "Dose Guide": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+  "Farm Dashboard": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  "Dose Guide": <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+  Users: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M23 7a4 4 0 0 1 0 7.75"/></svg>,
 }
 
 function Sidebar({ items, active, onSelect }) {
@@ -35,7 +37,38 @@ function Sidebar({ items, active, onSelect }) {
         ))}
       </div>
       
-      <div className="mt-auto pt-6 border-t border-slate-800/50">
+      <div className="mt-auto space-y-4">
+        {/* User Profile Badge */}
+        {(() => {
+          const auth = JSON.parse(localStorage.getItem("auth") || "{}");
+          if (!auth.name) return null;
+          return (
+            <div className="bg-slate-800/40 rounded-2xl p-4 border border-white/5 backdrop-blur-md flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-cyan-500/20">
+                {auth.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{auth.name}</p>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 font-black">{auth.role}</p>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* AI QUICK ACCESS */}
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent("agroLensToggle"))}
+          className="w-full bg-gradient-to-br from-cyan-500/10 to-blue-600/5 hover:from-cyan-500/20 hover:to-blue-600/10 rounded-2xl p-4 border border-cyan-500/30 backdrop-blur-md flex items-center gap-3 transition-all duration-300 group shadow-lg shadow-cyan-500/5 active:scale-95"
+        >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white shadow-lg shadow-cyan-400/30 group-hover:scale-110 transition-transform duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="m3.34 7 1.66 3"/><path d="M7 3h4"/><path d="M20.66 7 19 10"/><path d="M17 3h-4"/><path d="M3.1 14h17.8"/><path d="M4.5 14c-.9 3 0 5 2.5 5h10c2.5 0 3.4-2 2.5-5"/></svg>
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-black">AI Intelligence</p>
+            <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">✨ Ask AgroLens</p>
+          </div>
+        </button>
+
         <div className="bg-slate-800/40 rounded-2xl p-4 border border-slate-700/30">
           <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">System Health</p>
           <div className="flex items-center gap-2">

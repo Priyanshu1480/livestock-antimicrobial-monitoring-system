@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   color-scheme: dark;
@@ -29,4 +28,10 @@ body {
 :root.light {
   --background: #f8fafc;
   --foreground: #1e293b;
+}
+
+@media print {
+  .no-print { 
+    display: none !important; 
+  }
 }

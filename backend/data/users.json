@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Priyanshu",
+    "username": "PRIYA123",
+    "password": "$2b$10$v4HsJ8cBSgweebzFqznVne0A35fMOVbaGrBA4clikVZ2bztJtyqEq",
+    "role": "farmer",
+    "country": "India",
+    "farm_id": "F-999",
+    "license_id": "",
+    "createdAt": "2026-04-04T14:15:20.575Z"
+  },
+  {
+    "name": "Priyanshu Gupta",
+    "username": "PRIYANSHU1",
+    "password": "$2b$10$xdrWQ1T13LveDTRSdfpCBOdHDyN/k2YEIP37Ad/khiGo1f.prvKTC",
+    "role": "farmer",
+    "country": "India",
+    "farm_id": "F-101",
+    "license_id": "",
+    "createdAt": "2026-04-04T14:16:40.522Z"
+  },
+  {
+    "name": "Test",
+    "username": "USER1",
+    "password": "$2b$10$aWGriBbhMwqdIG.uR/c7Xu6jxzGqKD8KXx0y4SiBILaPK0wpuCIVy",
+    "role": "farmer",
+    "country": "India",
+    "farm_id": "F-1023",
+    "license_id": "",
+    "createdAt": "2026-04-10T10:26:44.296Z"
+  }
+]

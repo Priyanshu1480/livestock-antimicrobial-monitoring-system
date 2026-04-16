@@ -85,6 +85,51 @@ function Landing() {
             </div>
           </div>
         </section>
+        
+        {/* NEW: PUBLIC CONSUMER TRUST PORTAL ENTRY */}
+        <section className="mt-20 mb-20">
+          <div className="card-glass rounded-[2rem] p-10 relative overflow-hidden text-center max-w-4xl mx-auto border border-white/5">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-teal-500/50 to-transparent" />
+            <div className="mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] uppercase font-black tracking-widest mb-4">
+                🛡️ Professional Safety Standard
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-4 tracking-tight uppercase italic">Consumer Trust Portal</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto">
+                Building transparency from farm to fork. Any consumer or regulator can instantly verify the safety status and treatment record of livestock products using a unique Safety Record ID.
+              </p>
+            </div>
+            
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const id = e.target.recordId.value.trim();
+                if (id) navigate(`/verify/${id}`);
+              }}
+              className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto mt-8 bg-slate-800/20 p-2 rounded-2xl border border-white/5"
+            >
+              <input
+                name="recordId"
+                type="text"
+                placeholder="Enter Safety Record ID (e.g., 1, 2, 3...)"
+                required
+                className="flex-1 bg-transparent border-none px-6 py-4 text-white text-lg placeholder:text-slate-600 focus:ring-0"
+              />
+              <button
+                type="submit"
+                className="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold px-8 py-4 rounded-xl transition-all hover:scale-105 shadow-xl shadow-teal-500/20"
+              >
+                Verify Safety
+              </button>
+            </form>
+            
+            <div className="mt-8 flex items-center justify-center gap-8 opacity-50 grayscale hover:grayscale-0 transition-all">
+               <div className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">✓ WHO Standards</div>
+               <div className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">✓ FAO Compliant</div>
+               <div className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">✓ Blockchain Verified</div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   )

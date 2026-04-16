@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTheme } from "../context/ThemeContext"
 
-function Navbar({ role, homePath, onLogout, onThemeToggle, isDark }) {
+function Navbar({ role, homePath, onLogout }) {
+  const { isDark, toggleTheme } = useTheme()
   const [time, setTime] = useState(new Date())
   const [notifications, setNotifications] = useState([])
   const [isOpen, setIsOpen] = useState(false)
@@ -80,7 +82,7 @@ function Navbar({ role, homePath, onLogout, onThemeToggle, isDark }) {
 
       <div className="flex items-center gap-2 text-xs relative" ref={ref}>
         <div className="hidden sm:block rounded-full bg-slate-800/80 px-3 py-1.5 text-slate-300 tabular-nums border border-slate-700/50 shadow-inner tracking-wide">{dateStr} {timeStr}</div>
-        <button onClick={onThemeToggle} className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300">{isDark ? "☀️ Light" : "🌙 Dark"}</button>
+        <button onClick={toggleTheme} className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300">{isDark ? "☀️ Light" : "🌙 Dark"}</button>
         <div className="relative">
           <button onClick={() => setIsOpen((p) => !p)} className="rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300 relative">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -99,6 +101,7 @@ function Navbar({ role, homePath, onLogout, onThemeToggle, isDark }) {
             </div>
           )}
         </div>
+
 
         <button onClick={() => { localStorage.removeItem("selectedRole"); nav("/") }} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 transition hover:bg-slate-700 hover:text-white text-slate-300">Home</button>
         <button onClick={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); onLogout() }} className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-rose-400 transition hover:bg-rose-500/20 border border-rose-500/20">Sign Out</button>

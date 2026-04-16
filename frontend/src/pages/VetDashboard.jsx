@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useMemo, useState, memo } from "react"
+import { useNavigate, Link } from "react-router-dom"
+import { useTheme } from "../context/ThemeContext"
 import Navbar from "../components/Navbar"
 import Sidebar from "../components/Sidebar"
 import Skeleton from "../components/Skeleton"
@@ -32,7 +33,8 @@ function getRiskLevel(record) {
   return "Low"
 }
 
-function VetDashboard({ isDark, onThemeToggle }) {
+const VetDashboard = memo(({ auth, onLogout }) => {
+  const { isDark, toggleTheme } = useTheme()
   const nav = useNavigate()
   const [active, setActive] = useState("Dashboard")
   const [records, setRecords] = useState([])
@@ -51,6 +53,27 @@ function VetDashboard({ isDark, onThemeToggle }) {
   const [consultRequired, setConsultRequired] = useState(false)
   const [selectedRecords, setSelectedRecords] = useState([])
   const [riskFilter, setRiskFilter] = useState("All")
+  const [prescribedDrug, setPrescribedDrug] = useState("")
+  const [prescribedDose, setPrescribedDose] = useState("")
+  const [withdrawalDays, setWithdrawalDays] = useState(0)
+  const [isCritical, setIsCritical] = useState(false)
+  
+  const [mrlQuery, setMrlQuery] = useState("")
+  const [mrlResult, setMrlResult] = useState(null)
+
+  const MRL_DATABASE = [
+    { drug: "Penicillin", limit: "0.05", unit: "mg/kg", withdrawal: 14, notes: "Commonly used for respiratory infections. Monitor closely in dairy cattle." },
+    { drug: "Tetracycline", limit: "0.10", unit: "mg/kg", withdrawal: 28, notes: "Broad-spectrum. High resistance risk if overused." },
+    { drug: "Ceftiofur", limit: "1.00", unit: "mg/kg", withdrawal: 4, notes: "Third-generation cephalosporin. Strict usage guidelines apply." },
+    { drug: "Oxytetracycline", limit: "0.20", unit: "mg/kg", withdrawal: 21, notes: "Long-acting formulations may require extended withdrawal periods." },
+    { drug: "Amoxicillin", limit: "0.05", unit: "mg/kg", withdrawal: 15, notes: "Effective for soft tissue infections. Standard clearance rate." }
+  ]
+
+  const handleMRLSearch = () => {
+    if (!mrlQuery) { setMrlResult(null); return; }
+    const found = MRL_DATABASE.find(d => d.drug.toLowerCase() === mrlQuery.toLowerCase().trim() || d.drug.toLowerCase().includes(mrlQuery.toLowerCase().trim()));
+    setMrlResult(found || { notFound: true, query: mrlQuery })
+  }
 
   const sortByDateDesc = (items) => (items || []).slice().sort((a, b) => {
     const da = new Date(a.administration_date || a.date || 0)
@@ -67,44 +90,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
       if (Array.isArray(data)) {
         const sorted = sortByDateDesc(data)
         
-        // Auto-categorize & persist logic (one-time check for "Pending" records)
-        if (!bg) {
-          const autoUpdates = []
-          sorted.forEach(r => {
-            const currentStatus = (r.status || "").toLowerCase()
-            const currentVetStatus = (r.vet_status || "").toLowerCase()
-            
-            if (currentStatus === "pending" || currentVetStatus === "not reviewed") {
-              const violation = isViolation(r)
-              const safe = (r.mrl_status || "").toLowerCase() === "safe" && (r.compliance_status || "").toLowerCase() === "compliant"
-              
-              if (violation) {
-                autoUpdates.push({ record_id: r.record_id, status: "Rejected", vet_notes: "System Auto-Rejected: Violation detected." })
-              } else if (safe) {
-                autoUpdates.push({ record_id: r.record_id, status: "Approved", vet_notes: "System Auto-Approved: High compliance and safe residue levels." })
-              }
-            }
-          })
-
-          if (autoUpdates.length > 0) {
-            console.log(`Auto-categorizing ${autoUpdates.length} records...`)
-            fetch(`${API_URL}/api/records-bulk`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ updates: autoUpdates })
-            }).then(() => {
-                setMessage(`${autoUpdates.length} records auto-processed and saved to database`)
-                loadRecords(true) // Reload to get updated data
-            })
-          }
-        }
-
-        setRecords((prev) => {
-          try {
-            if (JSON.stringify(prev) === JSON.stringify(sorted)) return prev
-          } catch(e) {}
-          return sorted
-        })
+        setRecords(sorted)
       } else {
         console.error("Invalid data format", data)
         setRecords([])
@@ -118,18 +104,28 @@ function VetDashboard({ isDark, onThemeToggle }) {
     }
   }
 
-  const [isCritical, setIsCritical] = useState(false)
-
   const updateRecordStatus = async (recordId, action) => {
     try {
       setLoading(true)
       const isApproved = action === "approved"
+      
+      let safeDate = null
+      if (isApproved && withdrawalDays > 0) {
+        const adminDate = selectedRecord.administration_date || selectedRecord.date || new Date().toISOString()
+        const dateObj = new Date(adminDate)
+        dateObj.setDate(dateObj.getDate() + parseInt(withdrawalDays))
+        safeDate = dateObj.toISOString().split('T')[0]
+      }
+
       const updatePayload = {
         status: isApproved ? "Approved" : "Rejected",
         vet_notes: remarks || "",
         is_critical: isCritical,
+        ...(prescribedDrug && { drug_name: prescribedDrug }),
+        ...(prescribedDose && { recommended_dose: prescribedDose }),
+        ...(isApproved && withdrawalDays > 0 && { withdrawal_days: parseInt(withdrawalDays), safe_date: safeDate }),
         ...(isApproved && { digital_signature: `VET-SIG-${Math.random().toString(36).substring(2,8).toUpperCase()}-${Date.now().toString(16).toUpperCase()}` }),
-        ...(!isApproved && (consultRequired || isCritical) && { consult_required: true })
+        ...((consultRequired || isCritical) && { consult_required: true })
       }
       const res = await fetch(`${API_URL}/api/records/${recordId}`, {
         method: "PUT",
@@ -143,6 +139,9 @@ function VetDashboard({ isDark, onThemeToggle }) {
       setSelectedRecord(null)
       setPendingAction(null)
       setRemarks("")
+      setPrescribedDrug("")
+      setPrescribedDose("")
+      setWithdrawalDays(0)
       setConsultRequired(false)
       setIsCritical(false)
       setMessage(action === "approved" ? "Record approved & electronically signed" : "Record declined")
@@ -153,10 +152,38 @@ function VetDashboard({ isDark, onThemeToggle }) {
       setLoading(false)
     }
   }
-  
-    const getAnimalHistory = (animalId) => {
-      return records.filter(r => r.animal_id === animalId).sort((a, b) => new Date(b.administration_date) - new Date(a.administration_date))
-    }
+
+  useEffect(() => {
+    const handleAISync = (e) => {
+      const { type, caseId, notes, suggestedDrug } = e.detail;
+      if (type === 'vet_sync') {
+        const targetId = caseId?.toUpperCase();
+        
+        // Find existing record match
+        const found = records.find(r => 
+          (r.record_id && r.record_id.toUpperCase() === targetId) || 
+          (r.animal_id && r.animal_id.toUpperCase() === targetId)
+        );
+
+        if (found) {
+          setSelectedRecord(found);
+          if (notes) setRemarks(prev => (prev ? `${prev}\n${notes}` : notes));
+          if (suggestedDrug) setPrescribedDrug(suggestedDrug);
+          setMessage(`AI synchronized with Case ${targetId}`);
+        } else {
+          setMessage(`AI suggested Case ${targetId} but it's not in current view.`);
+        }
+      }
+    };
+
+    window.addEventListener("agroLensSync", handleAISync);
+    return () => window.removeEventListener("agroLensSync", handleAISync);
+  }, [records, selectedRecord]);
+
+
+  const getAnimalHistory = (animalId) => {
+    return records.filter(r => r.animal_id === animalId).sort((a, b) => new Date(b.administration_date) - new Date(a.administration_date))
+  }
   
     const generateAlerts = useMemo(() => {
       const alerts = []
@@ -199,6 +226,16 @@ function VetDashboard({ isDark, onThemeToggle }) {
       return () => clearInterval(interval)
     }, [])
   
+    // Prevent body scroll when modal is open
+    useEffect(() => {
+      if (selectedRecord || animalHistory) {
+        document.body.style.overflow = "hidden"
+      } else {
+        document.body.style.overflow = "unset"
+      }
+      return () => { document.body.style.overflow = "unset" }
+    }, [selectedRecord, animalHistory])
+  
     // Auto-scroll to top when section changes
     useEffect(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -231,7 +268,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
       const term = search.toLowerCase()
       return records.filter((r) => {
         if (!r) return false
-        const searchFields = [r.record_id, r.animal_id, r.farm_id, r.drug_name, r.animal_type, r.country, r.problem, r.symptom].filter(Boolean).join(" ").toLowerCase()
+        const searchFields = [r.record_id, r.token_number, r.animal_id, r.farm_id, r.drug_name, r.animal_type, r.country, r.problem, r.symptom].filter(Boolean).join(" ").toLowerCase()
         if (term && !searchFields.includes(term)) return false
         if (countryFilter !== "All" && r.country !== countryFilter) return false
         if (farmFilter !== "All" && r.farm_id !== farmFilter) return false
@@ -310,7 +347,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
         <Sidebar items={sidebarItems} active={active} onSelect={setActive} />
         
         <main className="flex-1 min-h-screen md:ml-64 p-4 md:p-8 lg:p-10 space-y-8 relative z-10 transition-all duration-300">
-          <Navbar role="Veterinarian" homePath="/" onLogout={() => { localStorage.removeItem("auth"); localStorage.removeItem("selectedRole"); nav("/") }} isDark={isDark} onThemeToggle={onThemeToggle} />
+          <Navbar role="Veterinarian" homePath="/" onLogout={onLogout} />
           
           {message && <Toast message={message} type={message.includes("Error") ? "error" : "success"} onClose={() => setMessage("")} />}
           
@@ -323,7 +360,9 @@ function VetDashboard({ isDark, onThemeToggle }) {
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                     Clinical Monitoring Terminal
                   </p>
-                  <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">Veterinary Authorization</h1>
+                  <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">
+                  {auth?.isDemo ? "Veterinary Clinical Terminal" : `Welcome, ${auth?.name || "Doctor"}`}
+                </h1>
                   <p className="text-slate-400 text-sm max-w-md">Review high-precision medical data and authorize antimicrobial usage guidelines.</p>
                 </div>
                 <div className="flex flex-wrap justify-end gap-3 self-start">
@@ -356,6 +395,70 @@ function VetDashboard({ isDark, onThemeToggle }) {
             <div className="space-y-8 pb-32">
               {active === "Dashboard" && (
                 <>
+                  {/* CLINICAL MRL DATABASE LOCATOR */}
+                  <div className="card-glass rounded-[2rem] p-6 border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-500/20 via-violet-500/10 to-transparent flex flex-col items-start gap-6 animate-in slide-in-from-left duration-500 mb-8 overflow-hidden relative">
+                     <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/10 blur-[80px] rounded-full pointer-events-none -mt-20 -mr-20 animate-pulse"></div>
+                     <div className="flex items-center gap-4 w-full relative z-10">
+                        <div className="w-14 h-14 bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-xl shadow-fuchsia-500/30 shrink-0 transform -rotate-6 hover:rotate-0 transition-transform">
+                          🧬
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-300 to-violet-300 uppercase italic tracking-tight">Clinical MRL Locator</h2>
+                          <p className="text-xs text-slate-300">Search antimicrobial limits and mandatory withdrawal periods globally.</p>
+                        </div>
+                     </div>
+                     <div className="flex flex-col md:flex-row gap-4 w-full">
+                       <div className="flex gap-3 flex-1">
+                         <input 
+                           type="text" 
+                           placeholder="Search drug (e.g., Penicillin, Ceftiofur)..." 
+                           value={mrlQuery}
+                           onChange={(e) => setMrlQuery(e.target.value)}
+                           onKeyDown={(e) => e.key === "Enter" && handleMRLSearch()}
+                           className="flex-1 bg-slate-900/50 border border-fuchsia-500/30 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40 relative z-10"
+                         />
+                         <button 
+                           onClick={handleMRLSearch}
+                           className="bg-gradient-to-r from-fuchsia-500 to-violet-600 hover:from-fuchsia-400 hover:to-violet-500 text-white font-black px-6 py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-fuchsia-500/20 active:scale-95 relative z-10"
+                         >
+                           Query DB
+                         </button>
+                       </div>
+                     </div>
+
+                     {mrlResult && (
+                       <div className="w-full mt-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                         {mrlResult.notFound ? (
+                           <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 text-rose-400 text-sm font-medium relative z-10">
+                             ⚠️ No regulatory data found for "<span className="font-bold">{mrlResult.query}</span>". Try "Penicillin", "Tetracycline", or "Ceftiofur".
+                           </div>
+                         ) : (
+                           <div className="bg-slate-900/80 border border-fuchsia-500/40 rounded-xl p-5 shadow-inner relative z-10">
+                             <div className="flex justify-between items-start border-b border-fuchsia-500/20 pb-3 mb-4">
+                               <div>
+                                 <div className="text-[10px] text-fuchsia-400 font-black uppercase tracking-widest mb-1">Drug Monograph</div>
+                                 <div className="text-2xl font-black text-white">{mrlResult.drug}</div>
+                               </div>
+                               <div className="text-right">
+                                 <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">MRL Limit</div>
+                                 <div className="text-xl font-bold text-amber-400">{mrlResult.limit} <span className="text-xs text-amber-400/70">{mrlResult.unit}</span></div>
+                               </div>
+                             </div>
+                             <div className="flex items-center justify-between mb-4">
+                               <div className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs font-bold flex items-center gap-2">
+                                 ⏳ Mandatory Withdrawal: {mrlResult.withdrawal} Days
+                               </div>
+                             </div>
+                             <div>
+                               <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Clinical Notes</div>
+                               <p className="text-slate-300 text-sm italic border-l-2 border-slate-600 pl-3">"{mrlResult.notes}"</p>
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     )}
+                  </div>
+
                   {/* FEATURED PENDING CASE */}
                   {pendingRecords.length > 0 && (
                     <div className="animate-in fade-in slide-in-from-right duration-700">
@@ -370,7 +473,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
                             <div className="space-y-4">
                               <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-none italic uppercase">
-                                Case: {pendingRecords[0].record_id}
+                                Case: {pendingRecords[0].token_number || pendingRecords[0].record_id}
                                 <span className="block text-2xl md:text-3xl text-amber-300 not-italic normal-case font-bold mt-2">Manual review required for specimen {pendingRecords[0].animal_id}</span>
                               </h2>
                               <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-400">
@@ -389,13 +492,22 @@ function VetDashboard({ isDark, onThemeToggle }) {
                               </div>
                             </div>
                             
-                            <button 
-                              onClick={() => { setSelectedRecord(pendingRecords[0]); setPendingAction("approved") }}
-                              className="px-10 py-5 bg-white text-slate-950 rounded-3xl font-black text-lg shadow-2xl shadow-white/10 hover:scale-[1.05] hover:shadow-white/20 transition-all active:scale-95 group/btn overflow-hidden relative"
-                            >
-                              <span className="relative z-10 uppercase tracking-widest">Decide Case Now</span>
-                              <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-200 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
-                            </button>
+                            <div className="flex gap-4">
+                              <button 
+                                onClick={() => { setSelectedRecord(pendingRecords[0]); setPendingAction("approved") }}
+                                className="px-10 py-5 bg-white text-slate-950 rounded-3xl font-black text-lg shadow-2xl shadow-white/10 hover:scale-[1.05] hover:shadow-white/20 transition-all active:scale-95 group/btn overflow-hidden relative"
+                              >
+                                <span className="relative z-10 uppercase tracking-widest">Decide Case Now</span>
+                                <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-200 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                              </button>
+                              <Link 
+                                to={`/verify/${pendingRecords[0].record_id}`}
+                                target="_blank"
+                                className="px-6 py-5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-3xl font-black text-xs hover:bg-emerald-500/20 transition-all flex items-center gap-2 uppercase tracking-widest"
+                              >
+                                🛡️ Verify Certificate
+                              </Link>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -471,10 +583,10 @@ function VetDashboard({ isDark, onThemeToggle }) {
                         title={`Pending: ${statusDistribution.pending}`}
                       ></div>
                     </div>
-                    <div className="flex justify-between text-xs text-slate-400 mt-2">
-                      <span>✔️ Safe ({Math.round(statusDistribution.approvedPercent)}%)</span>
-                      <span>⚠️ Violations ({Math.round(statusDistribution.rejectedPercent)}%)</span>
-                      <span>⏳ Pending ({Math.round(statusDistribution.pendingPercent)}%)</span>
+                    <div className="flex flex-wrap items-center justify-center sm:justify-between gap-4 text-[10px] sm:text-xs text-slate-400 mt-3 font-medium uppercase tracking-tighter sm:tracking-normal">
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/50 rounded-full border border-white/5 shadow-sm whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30" />✔️ Safe ({Math.round(statusDistribution.approvedPercent)}%)</span>
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/50 rounded-full border border-white/5 shadow-sm whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-lg shadow-rose-500/30" />⚠️ Violations ({Math.round(statusDistribution.rejectedPercent)}%)</span>
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/50 rounded-full border border-white/5 shadow-sm whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/30" />⏳ Pending ({Math.round(statusDistribution.pendingPercent)}%)</span>
                     </div>
                   </div>
   
@@ -548,12 +660,22 @@ function VetDashboard({ isDark, onThemeToggle }) {
                           <h3 className="text-2xl font-black text-white italic">Case {pendingRecords[0].record_id} — {pendingRecords[0].animal_id}</h3>
                           <p className="text-xs text-slate-400 font-medium max-w-lg">This specimen requires manual authorization for {pendingRecords[0].drug_name} administration. All safety parameters are currently being evaluated.</p>
                        </div>
-                       <button 
-                         onClick={() => { setSelectedRecord(pendingRecords[0]); setPendingAction("approved") }}
-                         className="px-8 py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
-                       >
-                         AUTHORIZE NOW
-                       </button>
+                       <div className="flex gap-3">
+                         <button 
+                           onClick={() => { setSelectedRecord(pendingRecords[0]); setPendingAction("approved") }}
+                           className="px-8 py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                         >
+                           AUTHORIZE NOW
+                         </button>
+                         <Link 
+                           to={`/verify/${pendingRecords[0].record_id}`}
+                           target="_blank"
+                           className="px-4 py-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl font-black text-xs hover:bg-emerald-500/30 transition-all flex items-center justify-center min-w-[50px]"
+                           title="Public Certificate"
+                         >
+                           🛡️
+                         </Link>
+                       </div>
                     </div>
                   )}
 
@@ -594,19 +716,33 @@ function VetDashboard({ isDark, onThemeToggle }) {
                      <div className="grid gap-4 lg:grid-cols-3">
                        {filteredRecords.map(r => (
                           <div key={r.record_id} className={`card-glass p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 ${r.vet_status === 'approved' ? 'border-emerald-500/20 hover:border-emerald-500/40 shadow-emerald-500/5' : r.vet_status === 'rejected' ? 'border-rose-500/20 hover:border-rose-500/40 shadow-rose-500/5' : 'border-amber-500/10 hover:border-amber-500/30 shadow-amber-500/5 hover:shadow-xl'}`}>
-                             <div className="flex justify-between items-start mb-4">
-                                <div className="space-y-1">
-                                  <span className="font-black text-white text-sm tracking-tighter block">{r.record_id}</span>
-                                  <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest">{r.date || r.administration_date}</span>
-                                </div>
-                                <span className={`text-[9px] px-2.5 py-1 rounded-lg border font-black uppercase tracking-widest transition-all ${
-                                  (r.vet_status || r.status).toLowerCase() === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-lg shadow-emerald-500/10' : 
-                                  (r.vet_status || r.status).toLowerCase() === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-lg shadow-rose-500/10' : 
-                                  'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                                }`}>
-                                  {r.vet_status || r.status}
-                                </span>
-                             </div>
+                              <div className="grid grid-cols-1 xs:grid-cols-[1fr_auto] items-start gap-3 mb-5 border-b border-white/5 pb-4">
+                                 <div className="space-y-1.5 min-w-0">
+                                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                      <div className="px-2 py-0.5 bg-slate-800 rounded-md border border-white/10 shadow-sm flex items-center gap-2 max-w-full overflow-hidden">
+                                        <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-tighter shrink-0">ID:</span>
+                                        <span className="font-mono text-[11px] text-slate-100 font-black truncate leading-none">{r.token_number || r.record_id}</span>
+                                      </div>
+                                      {r.token_number && r.record_id?.includes('-') && (
+                                         <div className="bg-slate-700/50 text-slate-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-white/5 uppercase tracking-widest leading-none">
+                                            {r.record_id.split('-')[1]}
+                                         </div>
+                                      )}
+                                   </div>
+                                   <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[9px] uppercase tracking-widest pl-0.5">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+                                      {r.date || r.administration_date}
+                                   </div>
+                                 </div>
+                                 <div className={`justify-self-start xs:justify-self-end text-[9px] px-3 py-1.5 rounded-xl border font-black uppercase tracking-[0.1em] transition-all whitespace-nowrap shadow-xl flex items-center gap-2 ${
+                                   (r.vet_status || r.status || "").toLowerCase() === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 
+                                   (r.vet_status || r.status || "").toLowerCase() === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 
+                                   'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                                 }`}>
+                                   <span className={`w-1.5 h-1.5 rounded-full ${(r.vet_status || r.status || "").toLowerCase() === 'approved' ? 'bg-emerald-500' : (r.vet_status || r.status || "").toLowerCase() === 'rejected' ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'}`} />
+                                   {r.vet_status || r.status || "Pending"}
+                                 </div>
+                              </div>
                              
                              <div className="space-y-3 mb-6">
                                 <div className="p-3 bg-slate-900/50 rounded-xl border border-white/5 space-y-2">
@@ -622,7 +758,7 @@ function VetDashboard({ isDark, onThemeToggle }) {
                              </div>
 
                              <div className="flex gap-2">
-                                {((r.vet_status || r.status).toLowerCase() === 'pending' || (r.vet_status || r.status).toLowerCase() === 'not reviewed') ? (
+                                {((r.vet_status || r.status || "").toLowerCase() === 'pending' || (r.vet_status || r.status || "").toLowerCase() === 'not reviewed') ? (
                                   <button 
                                     onClick={() => { setSelectedRecord(r); setPendingAction("approved"); setRemarks("") }} 
                                     className="flex-1 bg-white text-slate-950 hover:bg-slate-200 px-3 py-3 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all shadow-lg active:scale-95"
@@ -637,11 +773,37 @@ function VetDashboard({ isDark, onThemeToggle }) {
                                     View Details
                                   </button>
                                 )}
+                                <Link 
+                                  to={`/verify/${r.record_id}`} 
+                                  target="_blank"
+                                  className="w-12 flex items-center justify-center bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 rounded-xl transition-all"
+                                  title="View Public Safety Certificate"
+                                >
+                                  🛡️
+                                </Link>
                              </div>
                           </div>
                        ))}
                      </div>
-                     {filteredRecords.length === 0 && <div className="text-center py-20 text-slate-500 italic border-2 border-dashed border-white/5 rounded-[2rem] text-sm font-medium">No records matching the current vector filters.</div>}
+                     {filteredRecords.length === 0 && (
+                        <div className="text-center py-24 text-slate-500 italic border-2 border-dashed border-white/5 rounded-[3rem] animate-in fade-in duration-700">
+                          <p className="text-lg font-medium mb-4">No records matching the current vector filters.</p>
+                          <button 
+                            onClick={() => {
+                              setSearch("")
+                              setStatusFilter("All")
+                              setFilter("All")
+                              setCountryFilter("All")
+                              setFarmFilter("All")
+                              setRiskFilter("All")
+                              setProblemFilter("all")
+                            }}
+                            className="px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl hover:bg-slate-700 hover:text-white transition-all text-xs font-bold uppercase tracking-widest border border-white/5"
+                          >
+                            Reset All Filters
+                          </button>
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
@@ -655,7 +817,14 @@ function VetDashboard({ isDark, onThemeToggle }) {
                            <span>CASE ID: {r.record_id}</span>
                            <span className="bg-rose-500 text-white px-2 py-0.5 rounded text-[9px] animate-pulse">CRITICAL VIOLATION</span>
                         </div>
-                        <div className="text-xs text-slate-300 font-medium">Record indicates {r.drug_name} residue at {r.residue_value}mg/kg. Legal MRL: {r.MRL_limit}mg/kg.</div>
+                        <div className="text-xs text-slate-300 font-medium mb-3">Record indicates {r.drug_name} residue at {r.residue_value}mg/kg. Legal MRL: {r.MRL_limit}mg/kg.</div>
+                        <Link 
+                          to={`/verify/${r.record_id}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg text-[10px] font-black uppercase hover:bg-rose-500/20 transition-all"
+                        >
+                          🛡️ Audit Public Certificate
+                        </Link>
                       </div>
                     ))}
                     {records.filter(isViolation).length === 0 && <div className="text-center py-10 text-slate-500 text-xs italic">System clean. No active violations detected.</div>}
@@ -671,9 +840,16 @@ function VetDashboard({ isDark, onThemeToggle }) {
                          <span className="font-black text-cyan-300 text-sm tracking-tighter">{r.record_id}</span>
                          <span className="text-[9px] font-black uppercase text-slate-500 group-hover:text-cyan-400 transition-colors">Safety Protocol</span>
                       </div>
-                      <div className="text-xs text-slate-200 leading-relaxed font-medium">
+                      <div className="text-xs text-slate-200 leading-relaxed font-medium mb-4">
                          {getRecommendation(r)}
                       </div>
+                      <Link 
+                        to={`/verify/${r.record_id}`}
+                        target="_blank"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg text-[10px] font-black uppercase hover:bg-cyan-500/20 transition-all"
+                      >
+                        🛡️ Verify Safety Record
+                      </Link>
                     </div>
                   ))}
                 </div>
@@ -723,11 +899,11 @@ function VetDashboard({ isDark, onThemeToggle }) {
         </main>
   
         {selectedRecord && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-            <div className="w-full max-w-lg rounded-[2.5rem] bg-slate-900 border border-white/10 p-8 shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
+            <div className="w-full max-w-lg rounded-[2.5rem] bg-slate-900 border border-white/10 p-8 shadow-2xl relative animate-in fade-in zoom-in duration-300 my-auto">
               <div className="absolute top-0 right-0 p-6">
                 <button 
-                  onClick={() => setSelectedRecord(null)} 
+                  onClick={() => { setSelectedRecord(null); }} 
                   className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-all hover:rotate-90"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
@@ -739,19 +915,40 @@ function VetDashboard({ isDark, onThemeToggle }) {
                 <h3 className="text-2xl font-black text-white">Record ID: {selectedRecord.record_id}</h3>
               </div>
   
+              {/* Critical Alerts & Flags (High Visibility) */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {selectedRecord?.is_critical && (
+                  <div className="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    High-Risk Critical Alert
+                  </div>
+                )}
+                {selectedRecord?.consult_required && (
+                  <div className="px-3 py-1.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Mandatory Farmer Consult
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3 text-xs mb-6 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar bg-slate-950/30 p-4 rounded-2xl border border-white/5">
-                {Object.entries(selectedRecord).filter(([key]) => !["vet_remarks", "vet_notes", "digital_signature", "consult_required"].includes(key)).map(([key, value]) => (
+                {Object.entries(selectedRecord || {}).filter(([key]) => !["vet_remarks", "vet_notes", "digital_signature", "problem", "symptom", "is_critical", "consult_required"].includes(key)).map(([key, value]) => (
                   <div key={key} className="flex flex-col border-b border-white/5 pb-2">
                     <span className="text-slate-500 uppercase text-[9px] font-bold tracking-wider">{key.replace(/_/g, ' ')}</span>
                     <span className="text-slate-200 font-medium truncate" title={String(value)}>{String(value || "—")}</span>
                   </div>
                 ))}
+                <div className="col-span-2 pt-2 border-t border-white/10 mt-2 flex justify-between items-end">
+                   <div>
+                     <div className="text-slate-500 uppercase text-[9px] font-bold tracking-wider mb-1">Primary Clinical Issue</div>
+                     <div className="text-cyan-400 font-bold text-sm">{(selectedRecord.problem || selectedRecord.symptom) || "N/A"}</div>
+                   </div>
+                </div>
               </div>
               
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between items-center">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Expert Recommendations</label>
-                  <span className="text-[10px] text-cyan-500 font-mono">Quick-Build Notes</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {["Dosage Too High", "Exceeds MRL Limits", "Wrong Medication", "Incorrect Animal Profile"].map(reply => (
@@ -792,30 +989,122 @@ function VetDashboard({ isDark, onThemeToggle }) {
                     </span>
                   </label>
                 </div>
+
+                {selectedRecord.drug_name === "Consult Veterinarian" && (
+                  <div className="space-y-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      Manual Prescription Required
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pl-1">Prescribed Drug</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Penicillin"
+                          value={prescribedDrug}
+                          onChange={(e) => setPrescribedDrug(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 transition-all shadow-inner"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest pl-1">Prescribed Dose</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. 500 mg"
+                          value={prescribedDose}
+                          onChange={(e) => setPrescribedDose(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 transition-all shadow-inner"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-amber-500/60 italic leading-relaxed">Enter the exact treatment protocol for this specimen. This will update the record upon approval.</p>
+                  </div>
+                )}
+
+                {/* Withdrawal Period Regulation */}
+                {((selectedRecord.vet_status || selectedRecord.status || "").toLowerCase() === "pending" || (selectedRecord.vet_status || selectedRecord.status || "").toLowerCase() === "not reviewed") && (
+                  <div className="space-y-4 pt-4 border-t border-white/5 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Residue Regulatory Limit
+                      </div>
+                      <span className="text-[9px] font-mono text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">MRL Standards Compliance</span>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1 flex justify-between">
+                        <span>Withdrawal Period (Days)</span>
+                        <span className="text-emerald-500">{withdrawalDays} Days Until Safe</span>
+                      </label>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="60" 
+                        step="1"
+                        value={withdrawalDays}
+                        onChange={(e) => setWithdrawalDays(e.target.value)}
+                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                      />
+                      <div className="flex justify-between text-[8px] text-slate-500 font-bold px-1">
+                        <span>0 DAYS</span>
+                        <span>15 DAYS</span>
+                        <span>30 DAYS</span>
+                        <span>45 DAYS</span>
+                        <span>60 DAYS</span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-emerald-500/60 italic leading-relaxed">
+                      Setting this regulates when the animal is safe for harvest. The system will track the residue safety countdown for the farmer.
+                    </p>
+                  </div>
+                )}
               </div>
               
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => updateRecordStatus(selectedRecord.record_id, "approved")} 
-                  className="flex-1 rounded-2xl bg-emerald-500 text-slate-950 px-4 py-4 text-xs font-black hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  APPROVE & E-SIGN
-                </button>
-                <button 
-                  onClick={() => updateRecordStatus(selectedRecord.record_id, "rejected")} 
-                  className="flex-1 rounded-2xl bg-slate-800 border border-rose-500/30 text-rose-400 px-4 py-4 text-xs font-black hover:bg-rose-500 hover:text-white transition-all active:scale-95"
-                >
-                  DECLINE
-                </button>
-              </div>
+              
+              {((selectedRecord.vet_status || selectedRecord.status || "").toLowerCase() === "pending" || (selectedRecord.vet_status || selectedRecord.status || "").toLowerCase() === "not reviewed") ? (
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => updateRecordStatus(selectedRecord.record_id, "approved")} 
+                    className={`flex-1 rounded-2xl px-4 py-4 text-xs font-black transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 ${prescribedDrug ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20'}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {prescribedDrug ? 'PRESCRIBE & APPROVE' : 'APPROVE & E-SIGN'}
+                  </button>
+                  <button 
+                    onClick={() => updateRecordStatus(selectedRecord.record_id, "rejected")} 
+                    className="flex-1 rounded-2xl bg-slate-800 border border-rose-500/30 text-rose-400 px-4 py-4 text-xs font-black hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+                  >
+                    DECLINE
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className={`p-5 rounded-2xl border flex flex-col items-center gap-3 ${(selectedRecord.vet_status || "").toLowerCase() === 'approved' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                    <div className={`text-sm font-black uppercase tracking-widest ${(selectedRecord.vet_status || "").toLowerCase() === 'approved' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {(selectedRecord.vet_status || "").toUpperCase()} ON {selectedRecord.date || selectedRecord.administration_date}
+                    </div>
+                    {selectedRecord.digital_signature && (
+                      <div className="text-[10px] font-mono text-slate-500 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 w-full text-center truncate">
+                        SIG: {selectedRecord.digital_signature}
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => { setSelectedRecord(null); }} 
+                    className="w-full py-4 bg-slate-800 text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 border border-white/5"
+                  >
+                    Close Review
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
   
         {animalHistory && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-            <div className="w-full max-w-lg rounded-[2.5rem] bg-slate-900 border border-white/10 p-8 shadow-2xl overflow-hidden relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
+            <div className="w-full max-w-lg rounded-[2.5rem] bg-slate-900 border border-white/10 p-8 shadow-2xl relative my-auto">
               <div className="absolute top-0 right-0 p-6">
                 <button 
                   onClick={() => setAnimalHistory(null)} 
@@ -855,6 +1144,6 @@ function VetDashboard({ isDark, onThemeToggle }) {
         )}
       </div>
     )
-  }
-  
-  export default VetDashboard
+  })
+
+export default VetDashboard

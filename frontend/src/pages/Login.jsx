@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams, Link } from "react-router-dom"
 import Button from "../components/Button"
+
+const VITE_API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"
 
 const users = {
   FARMER: { password: "FARMER@12", role: "farmer" },
@@ -20,12 +22,13 @@ const ROLE_LABEL = {
   admin: "ADMIN"
 }
 
-function Login() {
+function Login({ onLogin }) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [loginSuccess, setLoginSuccess] = useState(false)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -43,46 +46,77 @@ function Login() {
     localStorage.setItem("selectedRole", role)
   }, [searchParams, navigate])
 
-  const doLogin = (e) => {
+  const doLogin = async (e) => {
     e.preventDefault()
     setError("")
     setLoading(true)
     const normalized = username.trim().toUpperCase()
-    const user = users[normalized]
-    if (!user || user.password !== password) {
+    
+    const handleSuccess = (authData) => {
+      setLoginSuccess(true)
+      onLogin(authData)
+      localStorage.removeItem("selectedRole")
       setTimeout(() => {
-        setError("Invalid credentials.")
-        setLoading(false)
-      }, 250)
+        navigate(`/${authData.role}`)
+      }, 600)
+    }
+
+    // -- DUAL MODE: Check Demo Users First --
+    const demoUser = users[normalized]
+    if (demoUser && demoUser.password === password) {
+      if (selectedRole) {
+        const roleMatch = (selectedRole === "vet" ? "vet" : selectedRole) === demoUser.role
+        if (!roleMatch) {
+          setError(`Expected ${ROLE_LABEL[selectedRole] || selectedRole.toUpperCase()} login for this role.`)
+          setLoading(false)
+          return
+        }
+      }
+      
+      handleSuccess({ 
+        username: normalized, 
+        role: demoUser.role, 
+        name: normalized === "FARMER" ? "Farmer" : normalized === "VETERINARIAN" ? "Veterinarian" : "Admin",
+        isDemo: true
+      })
+      setLoading(false)
       return
     }
 
-    if (selectedRole) {
-      const expectedUsername = ROLE_DISPLAY[selectedRole] || ""
-      const normalizedRole = user.role
-      const roleMatch = (selectedRole === "vet" ? "vet" : selectedRole) === normalizedRole
-      if (!roleMatch) {
-        setTimeout(() => {
-          setError(`Expected ${ROLE_LABEL[selectedRole] || selectedRole.toUpperCase()} login for this role.`)
-          setLoading(false)
-        }, 250)
-        return
+    // -- DUAL MODE: Call Backend API for Registered Users --
+    try {
+      const response = await fetch(`${VITE_API_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      })
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid credentials.")
       }
-      // keep validation: username must correspond either to selected role prefills or valid user
-      if (!normalized || !users[normalized]) {
-        setTimeout(() => {
-          setError("Invalid user ID.")
-          setLoading(false)
-        }, 250)
-        return
-      }
-    }
 
-    const finalRole = user.role
-    localStorage.setItem("auth", JSON.stringify({ username: normalized, role: finalRole }))
-    localStorage.removeItem("selectedRole")
-    setLoading(false)
-    navigate(`/${finalRole}`)
+      // Final Role Validation (if coming from RoleSelect)
+      if (selectedRole) {
+        const roleMatch = (selectedRole === "vet" ? "vet" : selectedRole) === data.role
+        if (!roleMatch) {
+          throw new Error(`Your account role (${data.role}) does not match the selected portal (${selectedRole}).`)
+        }
+      }
+
+      handleSuccess({ 
+        username: data.username, 
+        role: data.role, 
+        name: data.name,
+        country: data.country,
+        farm_id: data.farm_id,
+        license_id: data.license_id,
+        isDemo: false
+      })
+    } catch (err) {
+      setError(err.message)
+      setLoading(false)
+    }
   }
 
   const roleLabel = selectedRole ? ROLE_LABEL[selectedRole] || selectedRole.toUpperCase() : "Your Role"
@@ -139,15 +173,25 @@ function Login() {
           <div className="pt-2">
             <Button
               type="submit"
-              disabled={loading}
-              variant="primary"
-              className="w-full"
+              disabled={loading || loginSuccess}
+              variant={loginSuccess ? "success" : "primary"}
+              className={`w-full transition-all duration-300 ${loginSuccess ? 'bg-emerald-500 hover:bg-emerald-500 scale-105 shadow-lg shadow-emerald-500/20' : ''}`}
             >
-              {loading ? "Sign In" : "Sign In"}
+              {loginSuccess ? "Success ✓" : (loading ? "Singing In..." : "Sign In")}
             </Button>
           </div>
           
           {error && <div className="text-rose-400 text-xs text-center border border-rose-500/20 bg-rose-500/10 p-2 rounded-lg">{error}</div>}
+          
+          <div className="text-center mt-4">
+            <button 
+              type="button"
+              onClick={() => navigate("/register")}
+              className="text-xs text-slate-400 hover:text-teal-400 transition"
+            >
+              New User? <span className="font-bold">Register Account</span>
+            </button>
+          </div>
         </form>
 
         {selectedRole && (

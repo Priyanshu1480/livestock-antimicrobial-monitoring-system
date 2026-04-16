@@ -1,12 +1,16 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { ThemeProvider } from "./context/ThemeContext"
 import "./App.css"
 import Login from "./pages/Login"
 import RoleSelect from "./pages/RoleSelect"
 import FarmerDashboard from "./pages/FarmerDashboard"
 import VetDashboard from "./pages/VetDashboard"
 import AdminDashboard from "./pages/AdminDashboard"
+import Register from "./pages/Register"
 import NotFound from "./pages/NotFound"
+import PublicVerification from "./pages/PublicVerification"
+import AIAssistant from "./components/AIAssistant"
 
 function getAuth() {
   try {
@@ -18,47 +22,63 @@ function getAuth() {
   return null
 }
 
-function ProtectedRoute({ allowedRole, children }) {
-  const auth = getAuth()
+function ProtectedRoute({ allowedRole, auth, children }) {
   if (!auth) return <Navigate to="/" replace />
   if (allowedRole && auth.role !== allowedRole) return <Navigate to={`/${auth.role}`} replace />
   return children
 }
 
 function App() {
-  const [isDark, setIsDark] = useState(true)
+  const [auth, setAuth] = useState(getAuth())
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme")
-    const darkMode = stored ? stored === "dark" : true
-    setIsDark(darkMode)
-    if (darkMode) document.documentElement.classList.add("dark")
-    else document.documentElement.classList.remove("dark")
-  }, [])
+  const handleLogin = (authData) => {
+    setAuth(authData)
+    localStorage.setItem("auth", JSON.stringify(authData))
+  }
 
-  const toggleTheme = () => {
-    setIsDark((prev) => {
-      const next = !prev
-      localStorage.setItem("theme", next ? "dark" : "light")
-      if (next) document.documentElement.classList.add("dark")
-      else document.documentElement.classList.remove("dark")
-      return next
-    })
+  const handleLogout = () => {
+    setAuth(null)
+    localStorage.removeItem("auth")
+    localStorage.removeItem("selectedRole")
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<RoleSelect />} />
-        <Route path="/sel" element={<RoleSelect />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/farmer" element={<ProtectedRoute allowedRole="farmer"><FarmerDashboard isDark={isDark} onThemeToggle={toggleTheme} /></ProtectedRoute>} />
-        <Route path="/vet" element={<ProtectedRoute allowedRole="vet"><VetDashboard isDark={isDark} onThemeToggle={toggleTheme} /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminDashboard isDark={isDark} onThemeToggle={toggleTheme} /></ProtectedRoute>} />
-        <Route path="/404" element={<NotFound />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<RoleSelect auth={auth} />} />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/register" element={<Register />} />
+          <Route 
+            path="/farmer" 
+            element={
+              <ProtectedRoute allowedRole="farmer" auth={auth}>
+                <FarmerDashboard auth={auth} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/vet" 
+            element={
+              <ProtectedRoute allowedRole="vet" auth={auth}>
+                <VetDashboard auth={auth} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
+          />
+           <Route path="/admin" 
+             element={
+               <ProtectedRoute allowedRole="admin" auth={auth}>
+                 <AdminDashboard auth={auth} onLogout={handleLogout} />
+               </ProtectedRoute>
+             } 
+           />
+           <Route path="/verify/:id" element={<PublicVerification />} />
+           <Route path="/404" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <AIAssistant auth={auth} />
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 
